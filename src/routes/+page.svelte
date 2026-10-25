@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import CategoryLinks from '../lib/components/CategoryLinks.svelte';
 	import FilterBar from '../lib/components/FilterBar.svelte';
 	import Hero from '../lib/components/Hero.svelte';
 	import ProductGrid from '../lib/components/ProductGrid.svelte';
 	import SiteFooter from '../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../lib/components/SiteHeader.svelte';
 	import { PUBLIC_SITE_URL } from '../lib/config';
+	import { categoryPagesWithProducts } from '../lib/category-pages';
 	import { Filters } from '../lib/filters.svelte';
 	import { pickHighlights, summarizeCategories, toShowcase } from '../lib/products';
 	import { toast } from '../lib/toast.svelte';
@@ -17,6 +19,7 @@
 	const highlights = $derived(pickHighlights(products));
 	const highlightIds = $derived(new Set(highlights.map((p) => p.id)));
 	const categories = $derived(summarizeCategories(products));
+	const categoryPageLinks = $derived(categoryPagesWithProducts(products));
 
 	const filters = new Filters();
 	let favoriteIds = $state<string[]>([]);
@@ -115,6 +118,7 @@
 
 	<main>
 		<Hero {highlights} onexplore={() => filterBar?.openSearch()} />
+		<CategoryLinks categories={categoryPageLinks} />
 		<FilterBar bind:this={filterBar} {filters} {categories} favoriteCount={favoriteIds.length} />
 		<ProductGrid
 			items={visibleProducts}
