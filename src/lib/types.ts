@@ -13,7 +13,6 @@ export type Product = {
 export type ShowcaseProduct = Product & {
 	categoryKey: string;
 	categoryLabel: string;
-	categoryEmoji: string;
 	/** Nome + categoria sem acento e em minúsculas, usado na busca. */
 	searchText: string;
 	/** Desconto em %, ou null quando não há preço anterior maior que o atual. */

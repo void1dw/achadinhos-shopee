@@ -2,13 +2,6 @@ import { resolveCategory } from './categories';
 import { normalizeText } from './format';
 import type { Product, ShowcaseProduct } from './types';
 
-export type CategorySummary = {
-	key: string;
-	label: string;
-	emoji: string;
-	count: number;
-};
-
 /** Padroniza a categoria e pré-calcula desconto e texto de busca (feito uma vez, não a cada filtro). */
 export function toShowcase(products: Product[]): ShowcaseProduct[] {
 	return products.map((product) => {
@@ -23,7 +16,6 @@ export function toShowcase(products: Product[]): ShowcaseProduct[] {
 			...product,
 			categoryKey: category.key,
 			categoryLabel: category.label,
-			categoryEmoji: category.emoji,
 			searchText: normalizeText(`${product.name} ${category.label}`),
 			discountPercent: percent > 0 ? percent : null
 		};
@@ -42,20 +34,4 @@ export function pickHighlights(items: ShowcaseProduct[], count = 30): ShowcasePr
 	return [...items]
 		.sort((a, b) => byNewest(a, b) || (b.discountPercent ?? 0) - (a.discountPercent ?? 0))
 		.slice(0, count);
-}
-
-/** Categorias presentes na lista, da mais cheia para a mais vazia. */
-export function summarizeCategories(items: ShowcaseProduct[]): CategorySummary[] {
-	const map = new Map<string, CategorySummary>();
-	for (const item of items) {
-		const entry = map.get(item.categoryKey) ?? {
-			key: item.categoryKey,
-			label: item.categoryLabel,
-			emoji: item.categoryEmoji,
-			count: 0
-		};
-		entry.count += 1;
-		map.set(item.categoryKey, entry);
-	}
-	return [...map.values()].sort((a, b) => b.count - a.count);
 }

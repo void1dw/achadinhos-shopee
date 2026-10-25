@@ -43,7 +43,7 @@
 				Ofertas e cupons selecionados para você encontrar seu próximo achado.
 			</p>
 			<a
-				href="#produtos"
+				href="#buscar-produto"
 				onclick={onexplore}
 				class="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-lia-orange px-4 text-sm font-bold text-white shadow-sm focus-ring transition hover:bg-[#db5208]"
 			>

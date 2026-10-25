@@ -9,7 +9,7 @@
 	import { PUBLIC_SITE_URL } from '../lib/config';
 	import { categoryPagesWithProducts } from '../lib/category-pages';
 	import { Filters } from '../lib/filters.svelte';
-	import { pickHighlights, summarizeCategories, toShowcase } from '../lib/products';
+	import { pickHighlights, toShowcase } from '../lib/products';
 	import { toast } from '../lib/toast.svelte';
 	import type { PageData } from './$types';
 
@@ -18,7 +18,6 @@
 	const products = $derived(toShowcase(data.products));
 	const highlights = $derived(pickHighlights(products));
 	const highlightIds = $derived(new Set(highlights.map((p) => p.id)));
-	const categories = $derived(summarizeCategories(products));
 	const categoryPageLinks = $derived(categoryPagesWithProducts(products));
 
 	const filters = new Filters();
@@ -119,7 +118,7 @@
 	<main>
 		<Hero {highlights} onexplore={() => filterBar?.openSearch()} />
 		<CategoryLinks categories={categoryPageLinks} />
-		<FilterBar bind:this={filterBar} {filters} {categories} favoriteCount={favoriteIds.length} />
+		<FilterBar bind:this={filterBar} {filters} favoriteCount={favoriteIds.length} />
 		<ProductGrid
 			items={visibleProducts}
 			total={products.length}

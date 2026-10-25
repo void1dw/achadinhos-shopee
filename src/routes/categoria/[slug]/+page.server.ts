@@ -47,7 +47,6 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
 		category,
 		items,
 		relatedCategories,
-		availableCategories,
 		productsStale: stale
 	};
 };

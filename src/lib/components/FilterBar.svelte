@@ -1,57 +1,61 @@
 <script lang="ts">
-	import { Heart, SlidersHorizontal } from '@lucide/svelte';
+	import { Heart, Search, SlidersHorizontal, X } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { dragScroll } from '../attachments/dragScroll';
-	import { ALL, type Filters } from '../filters.svelte';
-	import type { CategorySummary } from '../products';
+	import type { Filters } from '../filters.svelte';
 
-	type Props = { filters: Filters; categories: CategorySummary[]; favoriteCount: number };
-	let { filters, categories, favoriteCount }: Props = $props();
+	type Props = { filters: Filters; favoriteCount: number };
+	let { filters, favoriteCount }: Props = $props();
 
 	let searchInput = $state<HTMLInputElement>();
 
-	/** Abre o painel de busca e já põe o cursor no campo (usado pelo botão da hero). */
+	/** Leva a pessoa até a busca e posiciona o cursor no campo. */
 	export async function openSearch() {
-		filters.panelOpen = true;
 		await tick();
-		searchInput?.focus();
+		searchInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		searchInput?.focus({ preventScroll: true });
 	}
 
 	const field =
-		'focus-ring h-9 rounded-full border border-neutral-200 bg-white px-3 text-sm placeholder:text-neutral-400';
+		'focus-ring h-10 rounded-full border border-neutral-200 bg-white px-4 text-sm placeholder:text-neutral-400';
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (filters.panelOpen = false)} />
 
-<!-- Categorias + filtros: uma única barra fina que gruda no topo ao rolar -->
+<!-- Filtros da vitrine em uma barra fina que gruda no topo ao rolar -->
 <section
-	id="achadinhos"
+	id="buscar-produto"
 	class="sticky top-0 z-30 border-y border-lia-line bg-white/95 backdrop-blur"
 >
 	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
-		<div
-			class="chips flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
-			role="group"
-			aria-label="Categorias"
-			{@attach dragScroll}
-		>
-			<button
-				class={['chip', filters.category === ALL && 'on', 'focus-ring']}
-				aria-pressed={filters.category === ALL}
-				onclick={() => (filters.category = ALL)}
-			>
-				Todas
-			</button>
-			{#each categories as c (c.key)}
+		<div class="relative min-w-0 flex-1">
+			<label for="product-search" class="sr-only">Buscar produtos</label>
+			<Search
+				size={17}
+				aria-hidden="true"
+				class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lia-muted"
+			/>
+			<input
+				id="product-search"
+				type="search"
+				bind:this={searchInput}
+				bind:value={filters.query}
+				placeholder="Buscar produto"
+				class="focus-ring h-11 w-full rounded-full border border-lia-line bg-white py-2 pr-10 pl-10 text-sm text-lia-ink placeholder:text-lia-muted focus:border-lia-orange"
+			/>
+			{#if filters.query}
 				<button
-					class={['chip', filters.category === c.key && 'on', 'focus-ring']}
-					aria-pressed={filters.category === c.key}
-					onclick={() => (filters.category = filters.category === c.key ? ALL : c.key)}
+					type="button"
+					class="focus-ring absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-lia-muted hover:bg-lia-cream hover:text-lia-navy"
+					aria-label="Limpar busca"
+					onclick={() => {
+						filters.query = '';
+						searchInput?.focus();
+					}}
 				>
-					<span aria-hidden="true">{c.emoji}</span>{c.label}
+					<X size={15} />
 				</button>
-			{/each}
+			{/if}
 		</div>
 		<button
 			class={['icon-btn', filters.favoritesOnly && 'on', 'focus-ring']}
@@ -64,27 +68,24 @@
 			{#if favoriteCount > 0}<span class="badge">{favoriteCount}</span>{/if}
 		</button>
 		<button
-			class={['icon-btn', (filters.panelOpen || filters.activeCount > 0) && 'on', 'focus-ring']}
+			class={['filter-btn', (filters.panelOpen || filters.activeCount > 0) && 'on', 'focus-ring']}
 			aria-expanded={filters.panelOpen}
-			aria-label="Busca e filtros"
+			aria-controls="advanced-filters"
 			onclick={() => (filters.panelOpen = !filters.panelOpen)}
 		>
 			<SlidersHorizontal size={15} />
+			<span>Filtros</span>
 			{#if filters.activeCount > 0}<span class="badge">{filters.activeCount}</span>{/if}
 		</button>
 	</div>
 
-	{#if filters.panelOpen}
-		<div class="border-t border-lia-line bg-lia-cream" transition:fly={{ y: -8, duration: 180 }}>
+	<div id="advanced-filters" aria-hidden={!filters.panelOpen} inert={!filters.panelOpen}>
+		{#if filters.panelOpen}
+		<div
+			class="border-t border-lia-line bg-lia-cream"
+			transition:fly={{ y: -8, duration: 180 }}
+		>
 			<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
-				<input
-					type="search"
-					bind:this={searchInput}
-					bind:value={filters.query}
-					placeholder="Buscar produto"
-					aria-label="Buscar produtos"
-					class="{field} w-full sm:w-56"
-				/>
 				<select bind:value={filters.sort} aria-label="Ordenar" class={field}>
 					<option value="recentes">Mais novos</option>
 					<option value="maior-desconto">Maior desconto</option>
@@ -122,24 +123,11 @@
 				{/if}
 			</div>
 		</div>
-	{/if}
+		{/if}
+	</div>
 </section>
 
 <style>
-	.chips {
-		padding-right: 36px;
-		cursor: grab;
-		user-select: none;
-		scrollbar-width: none;
-		-webkit-overflow-scrolling: touch;
-		mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
-	}
-	.chips:active {
-		cursor: grabbing;
-	}
-	.chips::-webkit-scrollbar {
-		display: none;
-	}
 	.chip {
 		display: inline-flex;
 		flex: none;
@@ -180,6 +168,26 @@
 		color: var(--lia-navy);
 	}
 	.icon-btn.on {
+		border-color: var(--lia-orange);
+		color: var(--lia-orange);
+	}
+	.filter-btn {
+		position: relative;
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		min-height: 2.5rem;
+		padding: 0 0.8rem;
+		border: 1px solid var(--lia-line);
+		border-radius: 999px;
+		background: #fff;
+		color: var(--lia-navy);
+		font-size: 0.78rem;
+		font-weight: 700;
+	}
+	.filter-btn.on {
 		border-color: var(--lia-orange);
 		color: var(--lia-orange);
 	}
