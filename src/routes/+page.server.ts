@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	if (result.failed || result.stale) {
 		setHeaders({ 'cache-control': 'no-store' });
 	} else {
-		setHeaders({ 'cache-control': 'public, max-age=60, s-maxage=300' });
+		setHeaders({ 'cache-control': 'public, max-age=0, s-maxage=300' });
 	}
 
 	return {

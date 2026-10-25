@@ -5,6 +5,7 @@
 	import ProductGrid from '../lib/components/ProductGrid.svelte';
 	import SiteFooter from '../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../lib/components/SiteHeader.svelte';
+	import { PUBLIC_SITE_URL } from '../lib/config';
 	import { Filters } from '../lib/filters.svelte';
 	import { pickHighlights, summarizeCategories, toShowcase } from '../lib/products';
 	import { toast } from '../lib/toast.svelte';
@@ -85,9 +86,11 @@
 		name="description"
 		content="Encontre ofertas da Shopee selecionadas pela Lia. Compare preços, salve seus achados favoritos e confira cupons antes de comprar."
 	/>
+	<link rel="canonical" href={PUBLIC_SITE_URL} />
 	<meta name="theme-color" content="#0d286b" />
 	<meta name="robots" content="index, follow, max-image-preview:large" />
 	<meta property="og:title" content="Achadinhos da Lia" />
+	<meta property="og:url" content={PUBLIC_SITE_URL} />
 	<meta property="og:type" content="website" />
 	<meta property="og:locale" content="pt_BR" />
 	<meta property="og:site_name" content="Achadinhos da Lia" />

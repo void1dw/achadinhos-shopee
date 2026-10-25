@@ -18,6 +18,7 @@ function parseCsv(text: string): string[][] {
 	let row: string[] = [];
 	let field = '';
 	let quoted = false;
+	let afterQuote = false;
 	const input = text.replace(/^\uFEFF/, '');
 
 	for (let i = 0; i < input.length; i += 1) {
@@ -26,22 +27,34 @@ function parseCsv(text: string): string[][] {
 			if (quoted && input[i + 1] === '"') {
 				field += '"';
 				i += 1;
+			} else if (quoted) {
+				quoted = false;
+				afterQuote = true;
+			} else if (field === '' && !afterQuote) {
+				quoted = true;
 			} else {
-				quoted = !quoted;
+				throw new Error('O CSV contém aspas em uma posição inválida.');
 			}
 		} else if (char === ',' && !quoted) {
 			row.push(field.trim());
 			field = '';
+			afterQuote = false;
 		} else if ((char === '\n' || char === '\r') && !quoted) {
 			if (char === '\r' && input[i + 1] === '\n') i += 1;
 			row.push(field.trim());
 			if (row.some((cell) => cell !== '')) rows.push(row);
 			row = [];
 			field = '';
-		} else {
+			afterQuote = false;
+		} else if (afterQuote && !/\s/.test(char)) {
+			throw new Error('O CSV contém conteúdo após o fechamento de aspas.');
+		} else if (!afterQuote) {
 			field += char;
+		} else {
+			continue;
 		}
 	}
+	if (quoted) throw new Error('O CSV contém um campo com aspas não fechadas.');
 	row.push(field.trim());
 	if (row.some((cell) => cell !== '')) rows.push(row);
 	return rows;
@@ -58,8 +71,25 @@ function normalizeHeader(value: string): string {
 
 function records(text: string): Array<Record<string, string>> {
 	const [headerRow, ...body] = parseCsv(text);
-	if (!headerRow || !body.length) return [];
+	if (!headerRow) throw new Error('O CSV não contém uma linha de cabeçalho.');
 	const headers = headerRow.map(normalizeHeader);
+	if (new Set(headers).size !== headers.length) {
+		throw new Error('O CSV contém cabeçalhos duplicados.');
+	}
+	const requiredHeaders = [
+		['nome', 'name'],
+		['preco', 'price'],
+		['preco_anterior', 'previous_price', 'precoanterior'],
+		['categoria', 'category'],
+		['imagem', 'image'],
+		['url', 'link']
+	];
+	if (requiredHeaders.some((aliases) => !aliases.some((alias) => headers.includes(alias)))) {
+		throw new Error('O CSV não contém todos os cabeçalhos obrigatórios de produtos.');
+	}
+	if (body.some((cells) => cells.length !== headers.length)) {
+		throw new Error('O CSV contém linhas com quantidade de colunas inconsistente.');
+	}
 	return body.map((cells) =>
 		Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? '']))
 	);
@@ -74,12 +104,18 @@ function first(record: Record<string, string>, ...keys: string[]): string {
 }
 
 function parsePrice(raw: string): number | undefined {
-	const amounts = raw
-		.match(/\d[\d.,]*/g)
-		?.map(parseAmount)
-		.filter((value) => value !== undefined);
-	if (!amounts?.length) return undefined;
-	return amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
+	const value = raw.trim().replace(/^R\$\s*/i, '');
+	const validPrice =
+		/^\d+$/.test(value) ||
+		/^\d+[.,]\d{1,2}$/.test(value) ||
+		/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(value) ||
+		/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/.test(value);
+	if (!validPrice) return undefined;
+
+	const normalizedValue = /^\d{1,3}(?:,\d{3})+$/.test(value)
+		? value.replace(/,/g, '')
+		: value;
+	return parseAmount(normalizedValue);
 }
 
 function normalizeDate(raw: string): string | undefined {
@@ -194,9 +230,13 @@ async function fetchProducts(fetcher: typeof fetch, url: string): Promise<SheetR
 				`${skipped} linha(s) da planilha foram ignoradas por dados obrigatórios inválidos.`
 			);
 		}
+		if (skipped > 0 && items.length === 0) {
+			console.error('A planilha contém linhas de produtos, mas nenhuma é válida.');
+			return { items: [], skipped, failed: true };
+		}
 		return { items, skipped, failed: false };
 	} catch (error) {
-		console.error('Erro inesperado ao processar a planilha de produtos:', error);
+		console.error('Falha ao validar ou processar o CSV da planilha de produtos:', error);
 		return { items: [], skipped: 0, failed: true };
 	}
 }
