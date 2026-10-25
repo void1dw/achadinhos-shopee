@@ -1,0 +1,88 @@
+@import 'tailwindcss';
+
+/* Identidade da LIA: azul-marinho = confiança | creme = acolhimento | laranja = ação */
+:root {
+	--lia-navy: #0d286b;
+	--lia-cream: #f9f7f0;
+	--lia-orange: #f46310;
+	--lia-yellow: #fbc619;
+	--lia-purple: #b347bb;
+	--lia-ink: #18233b;
+	--lia-muted: #667085;
+	--lia-line: #e8e6df;
+}
+
+/* Vira classes do Tailwind: text-lia-navy, bg-lia-cream/90, border-lia-line... */
+@theme inline {
+	--color-lia-navy: var(--lia-navy);
+	--color-lia-cream: var(--lia-cream);
+	--color-lia-orange: var(--lia-orange);
+	--color-lia-muted: var(--lia-muted);
+	--color-lia-line: var(--lia-line);
+	--color-lia-ink: var(--lia-ink);
+}
+
+/* Anel de foco padrão para teclado. Uso: class="focus-ring" */
+@utility focus-ring {
+	&:focus-visible {
+		outline: 2px solid var(--lia-orange);
+		outline-offset: 2px;
+	}
+}
+
+@property --ang {
+	syntax: '<angle>';
+	initial-value: 0deg;
+	inherits: false;
+}
+
+/* Bolinha verde pulsante ("ao vivo", "novo"). */
+.pulse-dot {
+	display: inline-block;
+	flex: none;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #22c55e;
+	animation: pulse 1.6s infinite;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgb(34 197 94 / 50%);
+	}
+	50% {
+		box-shadow: 0 0 0 5px rgb(34 197 94 / 0%);
+	}
+}
+
+@layer base {
+	html {
+		-webkit-font-smoothing: antialiased;
+		scroll-behavior: smooth;
+	}
+	body {
+		background: var(--lia-cream);
+		color: var(--lia-ink);
+	}
+	::selection {
+		background: rgb(244 99 16 / 18%);
+		color: var(--lia-navy);
+	}
+	button,
+	a,
+	input,
+	select {
+		-webkit-tap-highlight-color: transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+	.pulse-dot {
+		animation: none;
+	}
+}

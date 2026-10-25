@@ -1,0 +1,24 @@
+COMO ABRIR O PROJETO
+
+1. Instale o Node.js (versao LTS) em https://nodejs.org/.
+2. Extraia o arquivo ZIP para uma pasta.
+3. Abra essa pasta no terminal (PowerShell ou Prompt de Comando).
+   Dica: no Explorador de Arquivos, abra a pasta, clique na barra de
+   endereco, digite "powershell" e aperte Enter.
+4. Instale as dependencias:
+
+   npm install
+
+5. Confira se esta tudo certo:
+
+   npm run check
+
+6. Inicie o site:
+
+   npm run dev
+
+7. Abra no navegador o endereco que aparecer no terminal, normalmente:
+
+   http://localhost:5173
+
+Para parar o site, volte ao terminal e aperte Ctrl+C.
