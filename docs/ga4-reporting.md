@@ -2,7 +2,7 @@
 
 The site sends the `select_item`, `affiliate_click`, and `select_category` events to the existing GA4 property. The affiliate event includes the selected product in the GA4 ecommerce `items` array and sends only the destination hostname as `link_domain`.
 
-The private endpoint `GET /api/analytics/report` uses the Google Analytics Data API. It returns daily page views, sessions and users; session source/medium; selected products; affiliate clicks by product and domain; and category selections. Join `productSelections.itemId` to `affiliateProducts.affiliate_product_id` to compare product interest with affiliate exits. The endpoint is intentionally an API, not a public dashboard: it requires a bearer token and does not expose credentials to the browser.
+The private endpoint `GET /api/analytics/report` uses the Google Analytics Data API. It returns daily page views, sessions and users; daily counts for the three commercial events; session source/medium; selected products; affiliate clicks by product and domain; and category selections. Join `productSelections.itemId` to `affiliateProducts.affiliate_product_id` to compare product interest with affiliate exits. The endpoint is intentionally an API, not a public dashboard: it requires a bearer token and does not expose credentials to the browser.
 
 ## Google configuration required
 
@@ -33,4 +33,4 @@ curl --fail-with-body \
   "https://achadinholia.brunomarinhomattoss2.workers.dev/api/analytics/report?startDate=2026-10-01&endDate=2026-10-26"
 ```
 
-The endpoint is uncached and makes six read-only Data API reports per request. It returns `401` for a missing/invalid token, `400` for an invalid date range, `503` when credentials are not configured, and `502` when Google OAuth or the Data API fails.
+The endpoint is uncached and makes seven read-only Data API reports per request. It returns `401` for a missing/invalid token, `400` for an invalid date range, `503` when credentials are not configured, and `502` when Google OAuth or the Data API fails.

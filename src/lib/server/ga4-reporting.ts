@@ -14,9 +14,17 @@ type ReportRequest = {
 	dimensions: { name: string }[];
 	metrics: { name: string }[];
 	dimensionFilter?: {
-		filter: {
+		filter?: {
 			fieldName: string;
 			stringFilter: { matchType: 'EXACT'; value: string };
+		};
+		orGroup?: {
+			expressions: {
+				filter: {
+					fieldName: string;
+					stringFilter: { matchType: 'EXACT'; value: string };
+				};
+			}[];
 		};
 	};
 	limit: string;
@@ -34,6 +42,7 @@ type ReportResponse = {
 
 export type Ga4Reports = {
 	daily: ReportRow[];
+	dailyCommercialEvents: ReportRow[];
 	acquisition: ReportRow[];
 	productSelections: ReportRow[];
 	affiliateProducts: ReportRow[];
@@ -165,6 +174,19 @@ function eventFilter(eventName: string): ReportRequest['dimensionFilter'] {
 	};
 }
 
+function eventFilterAny(eventNames: string[]): ReportRequest['dimensionFilter'] {
+	return {
+		orGroup: {
+			expressions: eventNames.map((eventName) => ({
+				filter: {
+					fieldName: 'eventName',
+					stringFilter: { matchType: 'EXACT', value: eventName }
+				}
+			}))
+		}
+	};
+}
+
 export async function getGa4Reports(
 	env: Pick<
 		Cloudflare.Env,
@@ -183,8 +205,15 @@ export async function getGa4Reports(
 
 	const accessToken = await fetchAccessToken(email, privateKey);
 	const range = { dateRanges: [dateRange] };
-	const [daily, acquisition, productSelections, affiliateProducts, affiliateDomains, categoryInterest] =
-		await Promise.all([
+	const [
+		daily,
+		dailyCommercialEvents,
+		acquisition,
+		productSelections,
+		affiliateProducts,
+		affiliateDomains,
+		categoryInterest
+	] = await Promise.all([
 			runReport(propertyId, accessToken, {
 				...range,
 				dimensions: [{ name: 'date' }],
@@ -194,6 +223,17 @@ export async function getGa4Reports(
 					{ name: 'totalUsers' }
 				],
 				limit: '100'
+			}),
+			runReport(propertyId, accessToken, {
+				...range,
+				dimensions: [{ name: 'date' }, { name: 'eventName' }],
+				metrics: [{ name: 'eventCount' }],
+				dimensionFilter: eventFilterAny([
+					'select_item',
+					'affiliate_click',
+					'select_category'
+				]),
+				limit: '300'
 			}),
 			runReport(propertyId, accessToken, {
 				...range,
@@ -236,6 +276,7 @@ export async function getGa4Reports(
 
 	return {
 		daily,
+		dailyCommercialEvents,
 		acquisition,
 		productSelections,
 		affiliateProducts,
