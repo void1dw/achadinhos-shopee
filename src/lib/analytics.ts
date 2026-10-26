@@ -29,12 +29,17 @@ function sendAffiliateClick(product: ShowcaseProduct): void {
 
 	const linkDomain = new URL(product.url).hostname.toLowerCase();
 	sendEvent('affiliate_click', {
-		item_id: product.id,
-		item_name: product.name,
-		item_category: product.categoryLabel,
-		price: product.price,
 		currency: CURRENCY,
-		link_domain: linkDomain
+		link_domain: linkDomain,
+		affiliate_product_id: product.id,
+		items: [
+			{
+				item_id: product.id,
+				item_name: product.name,
+				item_category: product.categoryLabel,
+				price: product.price
+			}
+		]
 	});
 }
 

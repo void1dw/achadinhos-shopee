@@ -17,6 +17,10 @@ npm run format    # arruma a formatação (Prettier)
 A planilha é lida no servidor (`src/lib/server/sheets.ts`), com cache de 5 minutos. Se a planilha falhar depois de uma carga válida, o site mantém a última versão em cache e avisa que preços e disponibilidade podem ter mudado. Linhas com dados obrigatórios inválidos ou URLs que não sejam HTTP(S) são ignoradas; IDs repetidos são ajustados para permanecer únicos.
 O link do CSV fica em `src/lib/config.ts`. Para ver o site com produtos de mentira, troque `SHOW_DEMO_DATA` para `true` nesse mesmo arquivo.
 
+## Relatórios do Google Analytics 4
+
+A configuração do GA4 e os eventos comerciais usam a propriedade `G-LE7LEHM879`. O endpoint privado de relatórios, as métricas disponíveis e a configuração necessária no Google Cloud, GA4 e Cloudflare estão descritos em [docs/ga4-reporting.md](./docs/ga4-reporting.md).
+
 Colunas da planilha (o nome pode ter acento ou não, maiúscula ou minúscula):
 
 | Coluna            | Obrigatória | Observação                                                                                         |
