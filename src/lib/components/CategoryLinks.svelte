@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { trackCategorySelection } from '../analytics';
 
 	let {
 		categories,
@@ -24,6 +25,7 @@
 				<li>
 					<a
 						href={resolve('/categoria/[slug]', { slug: category.slug })}
+						onclick={() => trackCategorySelection(category.label)}
 						class="inline-flex min-h-10 items-center gap-2 rounded-full border border-lia-line bg-white px-4 py-2 text-sm font-semibold text-lia-navy transition hover:border-lia-orange hover:text-lia-orange focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lia-orange"
 					>
 						{category.label}

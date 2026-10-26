@@ -1,6 +1,7 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { Plus } from '@lucide/svelte';
+	import { trackProductListClick } from '../analytics';
 	import { money } from '../format';
 	import type { ShowcaseProduct } from '../types';
 	import ProductCard from './ProductCard.svelte';
@@ -23,6 +24,8 @@
 		recentItems: ShowcaseProduct[];
 		onfavorite: (id: string) => void;
 		onview: (id: string) => void;
+		itemListId: string;
+		itemListName: string;
 	};
 	let {
 		items,
@@ -35,7 +38,9 @@
 		favoriteIds,
 		recentItems,
 		onfavorite,
-		onview
+		onview,
+		itemListId,
+		itemListName
 	}: Props = $props();
 
 	const PAGE_SIZE = 40;
@@ -71,7 +76,10 @@
 							href={product.url}
 							target="_blank"
 							rel="noopener noreferrer sponsored"
-							onclick={() => onview(product.id)}
+							onclick={() => {
+								onview(product.id);
+								trackProductListClick(product, 'recent_products', 'Produtos vistos recentemente');
+							}}
 						>
 							<img src={product.image} alt="" width="52" height="52" loading="lazy" />
 							<span class="recent-text">
@@ -117,6 +125,7 @@
 						isFavorite={favoriteIds.includes(product.id)}
 						{onfavorite}
 						{onview}
+						onproductclick={(product) => trackProductListClick(product, itemListId, itemListName)}
 					/>
 				{/each}
 			</div>

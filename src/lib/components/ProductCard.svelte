@@ -14,8 +14,9 @@
 		isFavorite: boolean;
 		onfavorite: (id: string) => void;
 		onview: (id: string) => void;
+		onproductclick: (product: ShowcaseProduct) => void;
 	};
-	let { product, index, isNew, isFavorite, onfavorite, onview }: Props = $props();
+	let { product, index, isNew, isFavorite, onfavorite, onview, onproductclick }: Props = $props();
 </script>
 
 <article class="card" style="--i:{index % 10}">
@@ -25,7 +26,10 @@
 		rel="noopener noreferrer sponsored"
 		class="product-link focus-ring"
 		aria-label="{product.name}, ver na Shopee"
-		onclick={() => onview(product.id)}
+		onclick={() => {
+			onview(product.id);
+			onproductclick(product);
+		}}
 	>
 		<div class="thumb">
 			<img

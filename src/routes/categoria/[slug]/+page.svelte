@@ -148,6 +148,8 @@
 				{recentItems}
 				onfavorite={toggleFavorite}
 				onview={recordViewed}
+				itemListId={`category_${category.slug}`}
+				itemListName={category.label}
 			/>
 		{:else}
 			<section class="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6">

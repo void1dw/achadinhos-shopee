@@ -2,6 +2,7 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { flip } from 'svelte/animate';
 	import { fade, fly } from 'svelte/transition';
+	import { trackProductListClick } from '../analytics';
 	import { money } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
@@ -16,6 +17,7 @@
 			target="_blank"
 			rel="noopener noreferrer sponsored"
 			class="feed-row"
+			onclick={() => trackProductListClick(p, 'featured_products', 'Produtos em destaque')}
 			animate:flip={{ duration: 320 }}
 			in:fly={{ y: -10, duration: 320 }}
 			out:fade={{ duration: 180 }}

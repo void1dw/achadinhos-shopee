@@ -131,6 +131,8 @@
 			{recentItems}
 			onfavorite={toggleFavorite}
 			onview={recordViewed}
+			itemListId="home_products"
+			itemListName="Produtos da página inicial"
 		/>
 	</main>
 

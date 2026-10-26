@@ -1,12 +1,19 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
+	import { trackAffiliateClick } from '../analytics';
 	import { money } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
 	let { product }: { product: ShowcaseProduct } = $props();
 </script>
 
-<a href={product.url} target="_blank" rel="noopener noreferrer sponsored" class="pop">
+<a
+	href={product.url}
+	target="_blank"
+	rel="noopener noreferrer sponsored"
+	class="pop"
+	onclick={() => trackAffiliateClick(product)}
+>
 	<img src={product.image} alt="" width="32" height="32" />
 	<span class="min-w-0">
 		<span class="pop-tag"><i class="pulse-dot"></i>novo</span>
