@@ -249,6 +249,7 @@ export async function getGa4Reports(
 					{ name: 'itemCategory' }
 				],
 				metrics: [{ name: 'itemsClicked' }],
+				dimensionFilter: eventFilter('select_item'),
 				limit: '100'
 			}),
 			runReport(propertyId, accessToken, {
