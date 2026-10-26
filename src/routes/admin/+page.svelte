@@ -1,8 +1,83 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll, goto } from '$app/navigation';
+	import type { Ga4Realtime } from '../../lib/server/ga4-reporting';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const LIVE_REFRESH_MS = 60_000;
+	const LIVE_EVENT_LABELS: Record<string, string> = {
+		page_view: 'Visualização de página',
+		affiliate_click: 'Clique afiliado',
+		select_item: 'Produto selecionado',
+		select_category: 'Categoria acessada',
+		user_engagement: 'Engajamento',
+		scroll: 'Rolagem',
+		click: 'Clique de saída',
+		session_start: 'Início de sessão',
+		first_visit: 'Primeira visita'
+	};
+
+	let live = $state<Ga4Realtime | null>(null);
+	let liveStatus = $state<'loading' | 'ready' | 'pending' | 'error'>('loading');
+	let liveLoading = $state(false);
+	let liveController: AbortController | null = null;
+
+	// Only one request in flight at a time; a manual refresh during an auto refresh is ignored.
+	async function loadLive() {
+		if (liveController) return;
+		const controller = new AbortController();
+		liveController = controller;
+		liveLoading = true;
+		try {
+			const response = await fetch('/admin/realtime', {
+				signal: controller.signal,
+				headers: { accept: 'application/json' }
+			});
+			if (response.status === 401) {
+				await goto('/admin/login');
+				return;
+			}
+			if (response.status === 503) {
+				live = null;
+				liveStatus = 'pending';
+				return;
+			}
+			if (!response.ok) throw new Error('realtime failed');
+			live = ((await response.json()) as { realtime: Ga4Realtime }).realtime;
+			liveStatus = 'ready';
+		} catch {
+			if (!controller.signal.aborted) liveStatus = 'error';
+		} finally {
+			if (liveController === controller) {
+				liveController = null;
+				liveLoading = false;
+			}
+		}
+	}
+
+	onMount(() => {
+		void loadLive();
+		const timer = setInterval(() => {
+			if (!document.hidden) void loadLive();
+		}, LIVE_REFRESH_MS);
+		return () => {
+			clearInterval(timer);
+			liveController?.abort();
+			liveController = null;
+		};
+	});
+
+	function liveEvent(eventName: string): number {
+		return live?.events.find((event) => event.eventName === eventName)?.eventCount ?? 0;
+	}
+
+	const liveTime = $derived(
+		live
+			? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'medium' }).format(new Date(live.fetchedAt))
+			: ''
+	);
 
 	type Row = Record<string, string | number>;
 	type ProductMetric = {
@@ -113,7 +188,7 @@
 				id,
 				name: value(row, 'itemName') || id,
 				category: value(row, 'itemCategory') || '—',
-				selected: count(row, 'itemsClicked'),
+				selected: count(row, 'itemsClickedInList'),
 				affiliate: 0
 			});
 		}
@@ -249,6 +324,84 @@
 			</p>
 		</div>
 
+		<section class="live" aria-labelledby="live-heading">
+			<div class="live-head">
+				<div>
+					<p class="live-kicker"><span class="live-dot" aria-hidden="true"></span>Tempo real</p>
+					<h2 id="live-heading">Ao vivo — últimos 30 minutos</h2>
+					<p class="live-sub">
+						Dados diretos do GA4 Realtime, independentes do histórico consolidado abaixo.
+					</p>
+				</div>
+				<div class="live-actions">
+					{#if live}<span class="live-updated">Atualizado às {liveTime}</span>{/if}
+					<button type="button" onclick={() => loadLive()} disabled={liveLoading}>
+						{liveLoading ? 'Atualizando…' : 'Atualizar agora'}
+					</button>
+				</div>
+			</div>
+
+			{#if liveStatus === 'pending'}
+				<p class="live-note" role="status">
+					Integração do GA4 pendente: faltam as credenciais da Data API neste Worker.
+				</p>
+			{:else if liveStatus === 'loading' && !live}
+				<p class="live-note" role="status">Carregando dados em tempo real…</p>
+			{:else}
+				{#if liveStatus === 'error'}
+					<p class="live-note live-note-error" role="alert">
+						Não foi possível atualizar o tempo real.{live
+							? ' Exibindo os últimos dados carregados.'
+							: ''} Nova tentativa em até 1 minuto.
+					</p>
+				{/if}
+				{#if live}
+					<div class="live-grid">
+						<article class="live-card">
+							<span>Usuários ativos</span><strong>{formatNumber(live.activeUsers)}</strong>
+						</article>
+						<article class="live-card">
+							<span>Visualizações</span><strong>{formatNumber(live.screenPageViews)}</strong>
+						</article>
+						<article class="live-card live-card-accent">
+							<span>Cliques afiliados</span><strong
+								>{formatNumber(liveEvent('affiliate_click'))}</strong
+							>
+						</article>
+						<article class="live-card">
+							<span>Produtos selecionados</span><strong
+								>{formatNumber(liveEvent('select_item'))}</strong
+							>
+						</article>
+						<article class="live-card">
+							<span>Categorias acessadas</span><strong
+								>{formatNumber(liveEvent('select_category'))}</strong
+							>
+						</article>
+					</div>
+					{#if live.events.length > 0}
+						<ul class="live-events" aria-label="Eventos dos últimos 30 minutos">
+							{#each live.events as event (event.eventName)}
+								<li>
+									<span>
+										{LIVE_EVENT_LABELS[event.eventName] ?? event.eventName}
+										<code>{event.eventName}</code>
+									</span>
+									<strong>{formatNumber(event.eventCount)}</strong>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="live-note">Nenhuma atividade nos últimos 30 minutos.</p>
+					{/if}
+					<p class="live-foot">
+						Produtos e domínios de destino por clique não existem no relatório em tempo real do GA4;
+						eles aparecem no histórico, após o processamento.
+					</p>
+				{/if}
+			{/if}
+		</section>
+
 		{#if data.state === 'pending'}
 			<section
 				class="rounded-3xl border border-amber-200 bg-white p-6 shadow-sm sm:p-8"
@@ -279,6 +432,16 @@
 				</button>
 			</section>
 		{:else}
+			{#if reports && Object.keys(reports.errors ?? {}).length > 0}
+				<section
+					class="mb-5 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+					role="status"
+				>
+					<strong>Alguns relatórios estão indisponíveis:</strong>
+					{Object.keys(reports.errors).join(', ')}. As demais seções mostram dados reais. Provável
+					causa: dimensões personalizadas ainda não registradas no GA4 (veja docs/ga4-reporting.md).
+				</section>
+			{/if}
 			<section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores principais">
 				<article class="metric-card">
 					<span class="metric-label">Usuários</span>
@@ -489,6 +652,155 @@
 </div>
 
 <style>
+	.live {
+		margin-bottom: 2rem;
+		border-radius: 1.5rem;
+		background: linear-gradient(145deg, var(--lia-navy), #1b3f94);
+		padding: 1.25rem;
+		color: #fff;
+		box-shadow: 0 12px 32px rgb(13 40 107 / 18%);
+	}
+	.live-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 1.1rem;
+	}
+	.live-kicker {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: #ffd9bd;
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+	}
+	.live-dot {
+		width: 0.55rem;
+		height: 0.55rem;
+		border-radius: 999px;
+		background: #4ade80;
+		animation: live-pulse 1.8s ease-in-out infinite;
+	}
+	.live h2 {
+		margin-top: 0.25rem;
+		font-size: 1.35rem;
+		font-weight: 900;
+		letter-spacing: -0.02em;
+	}
+	.live-sub,
+	.live-foot,
+	.live-updated {
+		color: rgb(255 255 255 / 70%);
+		font-size: 0.75rem;
+	}
+	.live-sub {
+		margin-top: 0.25rem;
+	}
+	.live-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.live-actions button {
+		border: 1px solid rgb(255 255 255 / 35%);
+		border-radius: 0.75rem;
+		padding: 0.55rem 0.9rem;
+		font-size: 0.8rem;
+		font-weight: 700;
+		transition: background 150ms ease;
+	}
+	.live-actions button:hover:not(:disabled) {
+		background: rgb(255 255 255 / 14%);
+	}
+	.live-actions button:disabled {
+		opacity: 0.6;
+	}
+	.live-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 0.75rem;
+	}
+	.live-card {
+		display: flex;
+		min-height: 92px;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 0.4rem;
+		border: 1px solid rgb(255 255 255 / 16%);
+		border-radius: 1rem;
+		background: rgb(255 255 255 / 8%);
+		padding: 0.9rem 1rem;
+	}
+	.live-card span {
+		color: rgb(255 255 255 / 75%);
+		font-size: 0.75rem;
+		font-weight: 700;
+	}
+	.live-card strong {
+		font-size: 1.75rem;
+		font-weight: 900;
+		letter-spacing: -0.03em;
+		line-height: 1;
+	}
+	.live-card-accent {
+		border-color: rgb(244 99 16 / 60%);
+		background: rgb(244 99 16 / 22%);
+	}
+	.live-events {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 0.5rem 1.25rem;
+		margin-top: 1rem;
+	}
+	.live-events li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		border-bottom: 1px solid rgb(255 255 255 / 14%);
+		padding: 0.45rem 0;
+		font-size: 0.82rem;
+	}
+	.live-events code {
+		display: block;
+		color: rgb(255 255 255 / 55%);
+		font-size: 0.68rem;
+	}
+	.live-note {
+		border-radius: 0.75rem;
+		background: rgb(255 255 255 / 10%);
+		padding: 0.75rem 1rem;
+		font-size: 0.82rem;
+	}
+	.live-note-error {
+		margin-bottom: 0.75rem;
+		background: rgb(239 68 68 / 25%);
+	}
+	.live-foot {
+		margin-top: 0.9rem;
+	}
+	@keyframes live-pulse {
+		50% {
+			opacity: 0.35;
+			transform: scale(0.8);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+	@media (max-width: 640px) {
+		.live {
+			padding: 1rem;
+		}
+	}
+
 	.metric-card {
 		display: flex;
 		min-height: 150px;

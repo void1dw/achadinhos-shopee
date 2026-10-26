@@ -26,6 +26,9 @@
 		onview: (id: string) => void;
 		itemListId: string;
 		itemListName: string;
+		/** Categorias sugeridas quando a busca não encontra nada. */
+		suggestions?: { slug: string; label: string }[];
+		onsuggest?: (slug: string) => void;
 	};
 	let {
 		items,
@@ -40,7 +43,9 @@
 		onfavorite,
 		onview,
 		itemListId,
-		itemListName
+		itemListName,
+		suggestions = [],
+		onsuggest
 	}: Props = $props();
 
 	const PAGE_SIZE = 40;
@@ -50,6 +55,7 @@
 		void items;
 		return PAGE_SIZE;
 	});
+	const shownCount = $derived(Math.min(visible, items.length));
 </script>
 
 <section id="produtos" class="mx-auto max-w-7xl px-4 py-5 sm:px-6">
@@ -92,21 +98,46 @@
 			</section>
 		{/if}
 
+		<p class="notice">
+			Preços e disponibilidade são definidos pela Shopee e podem mudar. Podemos receber comissão
+			pelas compras realizadas pelos nossos links. Cupons: resgate-os na Shopee antes de finalizar a
+			compra.
+		</p>
+
 		<p class="mb-3 text-sm text-lia-muted" aria-live="polite">
-			{#if items.length === total}
-				{total} achadinhos para explorar
+			{#if items.length === 0}
+				Nenhum produto encontrado
 			{:else}
-				{items.length} de {total} achadinhos
+				Mostrando {shownCount} de {items.length} produtos{#if items.length !== total}{' '}(filtrados
+					de {total}){/if}
 			{/if}
 		</p>
 
 		{#if items.length === 0}
-			<div class="py-16 text-center text-sm text-lia-muted">
-				Nada por aqui ainda.
+			<div class="empty">
+				<p class="empty-title">Não encontramos produtos com esses critérios.</p>
+				<p class="empty-text">
+					Revise a busca ou os filtros{suggestions.length > 0
+						? ', ou continue por uma categoria'
+						: ''}.
+				</p>
 				{#if canClear}
-					<button class="font-semibold text-lia-orange underline" onclick={onclear}>
-						Limpar filtros
+					<button type="button" class="empty-clear focus-ring" onclick={onclear}>
+						Limpar busca e filtros
 					</button>
+				{/if}
+				{#if suggestions.length > 0 && onsuggest}
+					<div class="empty-chips">
+						{#each suggestions as suggestion (suggestion.slug)}
+							<button
+								type="button"
+								class="empty-chip focus-ring"
+								onclick={() => onsuggest(suggestion.slug)}
+							>
+								{suggestion.label}
+							</button>
+						{/each}
+					</div>
 				{/if}
 			</div>
 		{:else}
@@ -143,6 +174,61 @@
 </section>
 
 <style>
+	.notice {
+		margin-bottom: 0.9rem;
+		padding: 0.6rem 0.8rem;
+		border: 1px solid var(--lia-line);
+		border-radius: 12px;
+		background: #fffaf0;
+		color: #4b5565;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+	}
+	.empty {
+		display: grid;
+		justify-items: center;
+		gap: 0.6rem;
+		padding: 3rem 1rem;
+		text-align: center;
+	}
+	.empty-title {
+		color: var(--lia-navy);
+		font-size: 1.05rem;
+		font-weight: 800;
+	}
+	.empty-text {
+		color: var(--lia-muted);
+		font-size: 0.875rem;
+	}
+	.empty-clear {
+		min-height: 2.75rem;
+		padding: 0 1.2rem;
+		border-radius: 999px;
+		background: #c94a08;
+		color: #fff;
+		font-size: 0.875rem;
+		font-weight: 800;
+	}
+	.empty-chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem;
+		margin-top: 0.4rem;
+	}
+	.empty-chip {
+		min-height: 2.75rem;
+		padding: 0 1rem;
+		border: 1px solid var(--lia-line);
+		border-radius: 999px;
+		background: #fff;
+		color: var(--lia-navy);
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+	.empty-chip:hover {
+		border-color: var(--lia-orange);
+	}
 	.stale-notice {
 		margin-bottom: 0.9rem;
 		padding: 0.65rem 0.8rem;
@@ -235,7 +321,7 @@
 	}
 	.recent-kicker {
 		color: var(--lia-orange);
-		font-size: 0.65rem;
+		font-size: 0.75rem;
 		font-weight: 800;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
@@ -248,7 +334,7 @@
 	}
 	.recent-heading > span {
 		color: var(--lia-muted);
-		font-size: 0.7rem;
+		font-size: 0.8125rem;
 	}
 	.recent-list {
 		display: grid;
@@ -295,14 +381,14 @@
 	.recent-name {
 		overflow: hidden;
 		color: var(--lia-ink);
-		font-size: 0.73rem;
+		font-size: 0.8125rem;
 		font-weight: 600;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.recent-text strong {
 		color: var(--lia-navy);
-		font-size: 0.8rem;
+		font-size: 0.875rem;
 	}
 
 	@media (max-width: 639px) {

@@ -2,7 +2,7 @@
 	import { Heart, Search, SlidersHorizontal, X } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import type { Filters } from '../filters.svelte';
+	import type { Filters, Sort } from '../filters.svelte';
 
 	type Props = { filters: Filters; favoriteCount: number };
 	let { filters, favoriteCount }: Props = $props();
@@ -17,7 +17,13 @@
 	}
 
 	const field =
-		'focus-ring h-10 rounded-full border border-neutral-200 bg-white px-4 text-sm placeholder:text-neutral-400';
+		'focus-ring h-11 rounded-full border border-neutral-200 bg-white px-4 text-sm placeholder:text-neutral-500';
+
+	const SORT_CHIPS: { value: Sort; label: string }[] = [
+		{ value: 'recentes', label: 'Mais novos' },
+		{ value: 'maior-desconto', label: 'Maior desconto' },
+		{ value: 'menor-preco', label: 'Menor preço' }
+	];
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (filters.panelOpen = false)} />
@@ -41,12 +47,12 @@
 				bind:this={searchInput}
 				bind:value={filters.query}
 				placeholder="Buscar produto"
-				class="focus-ring h-11 w-full rounded-full border border-lia-line bg-white py-2 pr-10 pl-10 text-sm text-lia-ink placeholder:text-lia-muted focus:border-lia-orange"
+				class="h-11 w-full rounded-full border border-lia-line bg-white py-2 pr-10 pl-10 text-sm text-lia-ink focus-ring placeholder:text-lia-muted focus:border-lia-orange"
 			/>
 			{#if filters.query}
 				<button
 					type="button"
-					class="focus-ring absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-lia-muted hover:bg-lia-cream hover:text-lia-navy"
+					class="absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-lia-muted focus-ring hover:bg-lia-cream hover:text-lia-navy"
 					aria-label="Limpar busca"
 					onclick={() => {
 						filters.query = '';
@@ -79,50 +85,63 @@
 		</button>
 	</div>
 
+	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 pb-2 sm:px-6">
+		<span class="shrink-0 text-xs font-semibold text-lia-muted" id="sort-label">Ordenar:</span>
+		<div class="sort-row" role="group" aria-labelledby="sort-label">
+			{#each SORT_CHIPS as chip (chip.value)}
+				<button
+					type="button"
+					class={['chip', filters.sort === chip.value && 'on', 'focus-ring']}
+					aria-pressed={filters.sort === chip.value}
+					onclick={() => (filters.sort = chip.value)}
+				>
+					{chip.label}
+				</button>
+			{/each}
+		</div>
+	</div>
+
 	<div id="advanced-filters" aria-hidden={!filters.panelOpen} inert={!filters.panelOpen}>
 		{#if filters.panelOpen}
-		<div
-			class="border-t border-lia-line bg-lia-cream"
-			transition:fly={{ y: -8, duration: 180 }}
-		>
-			<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
-				<select bind:value={filters.sort} aria-label="Ordenar" class={field}>
-					<option value="recentes">Mais novos</option>
-					<option value="maior-desconto">Maior desconto</option>
-					<option value="menor-preco">Menor preço</option>
-					<option value="maior-preco">Maior preço</option>
-				</select>
-				<input
-					inputmode="decimal"
-					bind:value={filters.minPrice}
-					placeholder="R$ mín."
-					aria-label="Preço mínimo"
-					class="{field} w-24"
-				/>
-				<input
-					inputmode="decimal"
-					bind:value={filters.maxPrice}
-					placeholder="R$ máx."
-					aria-label="Preço máximo"
-					class="{field} w-24"
-				/>
-				<button
-					class={['chip', filters.discountOnly && 'on', 'focus-ring']}
-					aria-pressed={filters.discountOnly}
-					onclick={() => (filters.discountOnly = !filters.discountOnly)}
-				>
-					Com desconto
-				</button>
-				{#if filters.dirty}
+			<div class="border-t border-lia-line bg-lia-cream" transition:fly={{ y: -8, duration: 180 }}>
+				<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
+					<select bind:value={filters.sort} aria-label="Ordenar" class={field}>
+						<option value="recentes">Mais novos</option>
+						<option value="maior-desconto">Maior desconto</option>
+						<option value="menor-preco">Menor preço</option>
+						<option value="maior-preco">Maior preço</option>
+					</select>
+					<input
+						inputmode="decimal"
+						bind:value={filters.minPrice}
+						placeholder="R$ mín."
+						aria-label="Preço mínimo"
+						class="{field} w-24"
+					/>
+					<input
+						inputmode="decimal"
+						bind:value={filters.maxPrice}
+						placeholder="R$ máx."
+						aria-label="Preço máximo"
+						class="{field} w-24"
+					/>
 					<button
-						class="ml-auto text-xs font-semibold text-lia-orange underline"
-						onclick={() => filters.clear()}
+						class={['chip', filters.discountOnly && 'on', 'focus-ring']}
+						aria-pressed={filters.discountOnly}
+						onclick={() => (filters.discountOnly = !filters.discountOnly)}
 					>
-						Limpar
+						Com desconto
 					</button>
-				{/if}
+					{#if filters.dirty}
+						<button
+							class="ml-auto min-h-11 px-2 text-sm font-semibold text-lia-orange underline"
+							onclick={() => filters.clear()}
+						>
+							Limpar
+						</button>
+					{/if}
+				</div>
 			</div>
-		</div>
 		{/if}
 	</div>
 </section>
@@ -133,19 +152,29 @@
 		flex: none;
 		align-items: center;
 		gap: 0.3rem;
-		height: 2rem;
-		padding: 0 0.8rem;
+		height: 2.75rem;
+		padding: 0 0.9rem;
 		border: 1px solid var(--lia-line);
 		border-radius: 999px;
 		background: #fff;
 		color: #3a475f;
-		font-size: 0.78rem;
+		font-size: 0.8125rem;
 		font-weight: 600;
 		white-space: nowrap;
 		transition:
 			background 150ms,
 			color 150ms,
 			border-color 150ms;
+	}
+	.sort-row {
+		display: flex;
+		gap: 0.4rem;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.sort-row::-webkit-scrollbar {
+		display: none;
 	}
 	.chip:hover {
 		border-color: rgb(244 99 16 / 50%);
@@ -160,8 +189,8 @@
 		display: grid;
 		flex: none;
 		place-items: center;
-		width: 2.25rem;
-		height: 2.25rem;
+		width: 2.75rem;
+		height: 2.75rem;
 		border: 1px solid var(--lia-line);
 		border-radius: 999px;
 		background: #fff;
@@ -178,8 +207,8 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.4rem;
-		min-height: 2.5rem;
-		padding: 0 0.8rem;
+		min-height: 2.75rem;
+		padding: 0 0.9rem;
 		border: 1px solid var(--lia-line);
 		border-radius: 999px;
 		background: #fff;

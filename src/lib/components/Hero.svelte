@@ -15,6 +15,10 @@
 
 	let inView = $state(true);
 	const spotlight = createSpotlight({ items: () => highlights, paused: () => !inView });
+	/** Ofertas clicáveis da primeira dobra: maiores descontos entre os achados mais recentes. */
+	const offers = $derived(
+		[...highlights].sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0)).slice(0, 6)
+	);
 
 	/** Avisa quando a hero sai da tela, para pausar animações e timers. */
 	function watchVisibility(element: HTMLElement) {
@@ -26,35 +30,38 @@
 
 <section class="hero" {@attach watchVisibility}>
 	<div
-		class="mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-6 sm:px-6 md:grid-cols-2 md:py-8"
+		class="mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-4 sm:px-6 md:grid-cols-2 md:py-8"
 	>
 		<div class="min-w-0">
 			<p
-				class="mb-2 inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.18em] text-lia-orange uppercase"
+				class="mb-1.5 inline-flex items-center gap-1.5 text-xs font-bold tracking-[0.16em] text-[#b8480f] uppercase"
 			>
-				<Sparkles size={13} /> Acabou de chegar
+				<img src="/lia.webp" alt="" width="28" height="28" class="size-7 md:hidden" />
+				<Sparkles size={13} /> Seleção da Lia
 			</p>
 			<h1
-				class="text-[1.9rem] leading-[1.05] font-extrabold tracking-tight text-lia-navy sm:text-5xl"
+				class="text-[1.6rem] leading-[1.08] font-extrabold tracking-tight text-lia-navy sm:text-5xl"
 			>
 				Só coisa nova,<br /><span class="text-lia-orange">achada pela Lia.</span>
 			</h1>
-			<p class="mt-3 max-w-md text-sm text-lia-muted sm:text-base">
+			<p class="mt-2 max-w-md text-sm text-lia-muted sm:text-base">
 				Ofertas e cupons selecionados para você encontrar seu próximo achado.
 			</p>
+			{#if highlights.length}
+				<HeroFeed items={offers} />
+			{/if}
 			<a
 				href="#buscar-produto"
 				onclick={onexplore}
-				class="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-lia-orange px-4 text-sm font-bold text-white shadow-sm focus-ring transition hover:bg-[#db5208]"
+				class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#c94a08] px-5 text-sm font-bold text-white shadow-sm focus-ring transition hover:bg-[#b54106]"
 			>
 				Explorar achadinhos <Search size={15} />
 			</a>
-			{#if highlights.length}
-				<HeroFeed items={spotlight.feed} />
-			{/if}
 		</div>
 
-		<LiaStage slots={spotlight.slots} paused={!inView} />
+		<div class="max-md:hidden">
+			<LiaStage slots={spotlight.slots} paused={!inView} />
+		</div>
 	</div>
 </section>
 

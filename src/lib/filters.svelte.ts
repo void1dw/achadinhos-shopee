@@ -1,3 +1,4 @@
+import { findCategoryPage } from './category-pages';
 import { normalizeText, parsePrice } from './format';
 import { byNewest } from './products';
 import type { ShowcaseProduct } from './types';
@@ -13,6 +14,7 @@ export class Filters {
 	maxPrice = $state('');
 	panelOpen = $state(false);
 	favoritesOnly = $state(false);
+	categorySlug = $state('');
 
 	/** Quantos filtros do painel estão ligados (aparece no selo do botão). */
 	get activeCount(): number {
@@ -25,7 +27,7 @@ export class Filters {
 	}
 
 	get dirty(): boolean {
-		return this.query.trim() !== '' || this.activeCount > 0;
+		return this.query.trim() !== '' || this.categorySlug !== '' || this.activeCount > 0;
 	}
 
 	apply(items: ShowcaseProduct[], favoriteIds: string[] = []): ShowcaseProduct[] {
@@ -34,8 +36,11 @@ export class Filters {
 		const min = parsePrice(this.minPrice);
 		const max = parsePrice(this.maxPrice);
 
+		const categoryKeys = new Set(findCategoryPage(this.categorySlug)?.categoryKeys);
+
 		const result = items.filter(
 			(p) =>
+				(categoryKeys.size === 0 || categoryKeys.has(p.categoryKey)) &&
 				terms.every((term) => p.searchText.includes(term)) &&
 				(!this.favoritesOnly || favoriteIds.includes(p.id)) &&
 				(!this.discountOnly || p.discountPercent !== null) &&
@@ -58,6 +63,7 @@ export class Filters {
 	clear(): void {
 		this.query = '';
 		this.favoritesOnly = false;
+		this.categorySlug = '';
 		this.discountOnly = false;
 		this.minPrice = '';
 		this.maxPrice = '';

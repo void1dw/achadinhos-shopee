@@ -26,7 +26,7 @@ The private endpoint `GET /api/analytics/report` uses the Google Analytics Data 
    - `ADMIN_SESSION_SECRET`: an independent random value with at least 32 characters for signing 8-hour sessions
 6. Keep the service account key and dashboard token out of Git, browser code, query strings, and chat. Rotate/revoke them if they are exposed.
 
-Until all seven Worker secrets, the API enablement, the GA4 property permission, and all five custom dimensions are configured, the dashboard will show the protected integration-pending state or incomplete custom-dimension reports.
+Until all seven Worker secrets, the API enablement, the GA4 property permission, and all five custom dimensions are configured, the dashboard will show the protected integration-pending state or incomplete custom-dimension reports. A report that fails individually (for example, an unregistered custom dimension) returns an empty array and a message under `reports.errors.<section>`; the other sections still return data. Authentication or authorization failures against Google still return HTTP 502.
 
 ## Administrator access
 

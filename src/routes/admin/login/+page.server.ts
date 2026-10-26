@@ -11,13 +11,17 @@ import {
 	verifyAdminSession
 } from '../../../lib/server/admin-auth';
 
-export const load: PageServerLoad = async ({ cookies, setHeaders }) => {
-	setHeaders({
-		'cache-control': 'private, no-store',
-		'x-content-type-options': 'nosniff',
-		'x-frame-options': 'DENY',
-		'referrer-policy': 'no-referrer'
-	});
+export const load: PageServerLoad = async ({ cookies, setHeaders, request }) => {
+	// After a failed login SvelteKit re-runs load on the POST; the action already set these headers.
+	if (request.method === 'GET') {
+		setHeaders({
+			'cache-control': 'private, no-store',
+			'x-content-type-options': 'nosniff',
+			'x-frame-options': 'DENY',
+			// no-referrer makes browsers send "Origin: null" on same-site form POSTs, which CSRF rejects
+			'referrer-policy': 'same-origin'
+		});
+	}
 
 	if (
 		isAdminAuthConfigured(env) &&
@@ -34,7 +38,7 @@ export const actions: Actions = {
 			'cache-control': 'private, no-store',
 			'x-content-type-options': 'nosniff',
 			'x-frame-options': 'DENY',
-			'referrer-policy': 'no-referrer'
+			'referrer-policy': 'same-origin'
 		});
 		if (!isSameOrigin(request)) return fail(403, { message: 'Origem da requisição inválida.' });
 		if (!isAdminAuthConfigured(env)) {

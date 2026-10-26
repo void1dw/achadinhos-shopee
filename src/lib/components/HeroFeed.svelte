@@ -1,7 +1,5 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
-	import { flip } from 'svelte/animate';
-	import { fade, fly } from 'svelte/transition';
 	import { trackProductListClick } from '../analytics';
 	import { money } from '../format';
 	import type { ShowcaseProduct } from '../types';
@@ -9,102 +7,109 @@
 	let { items }: { items: ShowcaseProduct[] } = $props();
 </script>
 
-<!-- Altura fixa: o espaço fica reservado e a página não "pula" quando os itens entram. -->
-<div class="feed" role="group" aria-label="Produtos em destaque">
+<ul class="feed" aria-label="Ofertas em destaque">
 	{#each items as p, idx (p.id)}
-		<a
-			href={p.url}
-			target="_blank"
-			rel="noopener noreferrer sponsored"
-			class="feed-row"
-			onclick={() => trackProductListClick(p, 'featured_products', 'Produtos em destaque')}
-			animate:flip={{ duration: 320 }}
-			in:fly={{ y: -10, duration: 320 }}
-			out:fade={{ duration: 180 }}
-		>
-			<img src={p.image} alt="" width="40" height="40" decoding="async" />
-			<span class="feed-text">
-				<span class="block truncate font-semibold">{p.name}</span>
-				<b class="text-lia-navy">{money(p.price)}</b>{#if p.discountPercent}<em
-						class="ml-1.5 text-xs font-bold text-green-700 not-italic">−{p.discountPercent}%</em
-					>{/if}
-			</span>
-			{#if idx === 0}<span class="featured-tag">destaque</span>{/if}
-		</a>
+		<li class={idx >= 4 ? 'extra' : undefined}>
+			<a
+				href={p.url}
+				target="_blank"
+				rel="noopener noreferrer sponsored"
+				class="feed-row focus-ring"
+				onclick={() => trackProductListClick(p, 'featured_products', 'Produtos em destaque')}
+			>
+				<img
+					src={p.image}
+					alt=""
+					width="44"
+					height="44"
+					loading={idx < 2 ? 'eager' : 'lazy'}
+					decoding="async"
+				/>
+				<span class="feed-text">
+					<span class="feed-name">{p.name}</span>
+					<span class="feed-price">
+						<b>{money(p.price)}</b>{#if p.discountPercent}<em>−{p.discountPercent}%</em>{/if}
+					</span>
+				</span>
+			</a>
+		</li>
 	{/each}
-</div>
+</ul>
 
 <style>
 	.feed {
 		display: grid;
-		grid-auto-rows: 56px;
-		gap: 0.4rem;
-		max-width: 24rem;
-		height: calc(3 * 56px + 2 * 0.4rem);
-		margin-top: 1.1rem;
-		overflow: hidden;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+		margin-top: 1rem;
+		padding: 0;
+		list-style: none;
+	}
+	.extra {
+		display: none;
+	}
+	@media (min-width: 640px) {
+		.extra {
+			display: block;
+		}
 	}
 	.feed-row {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.5rem;
 		min-width: 0;
-		height: 56px;
-		padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+		min-height: 56px;
+		padding: 0.35rem 0.55rem 0.35rem 0.35rem;
 		overflow: hidden;
 		border: 1px solid var(--lia-line);
 		border-radius: 13px;
 		background: #fff;
 		box-shadow: 0 4px 14px rgb(13 40 107 / 6%);
 		color: var(--lia-ink);
-		font-size: 0.78rem;
 		line-height: 1.25;
+		transition:
+			border-color 160ms,
+			box-shadow 160ms;
 	}
-	.feed-row:first-child {
+	.feed-row:hover {
 		border-color: rgb(244 99 16 / 50%);
-		animation: fresh 1.6s ease-out;
 	}
 	.feed-row img {
 		flex: none;
-		width: 40px;
-		height: 40px;
+		width: 44px;
+		height: 44px;
 		border-radius: 9px;
 		background: #f8f6f0;
 		object-fit: cover;
 	}
 	.feed-text {
+		display: grid;
 		flex: 1;
 		min-width: 0;
+		gap: 0.1rem;
+	}
+	.feed-name {
 		overflow: hidden;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
-	.featured-tag {
-		flex: none;
-		padding: 0.15rem 0.5rem;
-		border-radius: 99px;
-		background: var(--lia-orange);
-		color: #fff;
-		font-size: 9px;
-		font-weight: 800;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
+	.feed-price b {
+		color: var(--lia-navy);
+		font-size: 0.875rem;
 	}
-
-	@keyframes fresh {
-		0% {
-			background: #fff0dc;
-			box-shadow: 0 0 0 0 rgb(244 99 16 / 55%);
-		}
-		60% {
-			box-shadow: 0 0 0 9px rgb(244 99 16 / 0%);
-		}
-		100% {
-			background: #fff;
-		}
+	.feed-price em {
+		margin-left: 0.35rem;
+		color: #15703a;
+		font-size: 0.75rem;
+		font-style: normal;
+		font-weight: 700;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.feed-row {
-			animation: none;
+			transition: none;
 		}
 	}
 </style>

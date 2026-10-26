@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import CategoryChips from '../lib/components/CategoryChips.svelte';
 	import CategoryLinks from '../lib/components/CategoryLinks.svelte';
 	import FilterBar from '../lib/components/FilterBar.svelte';
 	import Hero from '../lib/components/Hero.svelte';
 	import ProductGrid from '../lib/components/ProductGrid.svelte';
 	import SiteFooter from '../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../lib/components/SiteHeader.svelte';
+	import { trackCategorySelection } from '../lib/analytics';
 	import { PUBLIC_SITE_URL } from '../lib/config';
 	import { categoryPagesWithProducts } from '../lib/category-pages';
 	import { Filters } from '../lib/filters.svelte';
@@ -19,6 +21,13 @@
 	const highlights = $derived(pickHighlights(products));
 	const highlightIds = $derived(new Set(highlights.map((p) => p.id)));
 	const categoryPageLinks = $derived(categoryPagesWithProducts(products));
+	const structuredData = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'WebSite',
+		name: 'Achadinhos da Lia',
+		url: PUBLIC_SITE_URL,
+		inLanguage: 'pt-BR'
+	}).replace(/</g, '\\u003c');
 
 	const filters = new Filters();
 	let favoriteIds = $state<string[]>([]);
@@ -65,6 +74,12 @@
 		}
 	});
 
+	function selectCategory(slug: string) {
+		filters.categorySlug = slug;
+		const label = categoryPageLinks.find((category) => category.slug === slug)?.label;
+		if (label) trackCategorySelection(label);
+	}
+
 	function toggleFavorite(id: string) {
 		favoriteIds = favoriteIds.includes(id)
 			? favoriteIds.filter((favoriteId) => favoriteId !== id)
@@ -106,6 +121,7 @@
 		name="twitter:description"
 		content="Ofertas da Shopee selecionadas pela Lia. Confira preços e cupons antes de comprar."
 	/>
+	{@html `<script type="application/ld+json">${structuredData}</script>`}
 </svelte:head>
 
 <div class="min-h-screen font-sans antialiased">
@@ -117,7 +133,11 @@
 
 	<main>
 		<Hero {highlights} onexplore={() => filterBar?.openSearch()} />
-		<CategoryLinks categories={categoryPageLinks} />
+		<CategoryChips
+			categories={categoryPageLinks}
+			selected={filters.categorySlug}
+			onselect={selectCategory}
+		/>
 		<FilterBar bind:this={filterBar} {filters} favoriteCount={favoriteIds.length} />
 		<ProductGrid
 			items={visibleProducts}
@@ -133,7 +153,13 @@
 			onview={recordViewed}
 			itemListId="home_products"
 			itemListName="Produtos da página inicial"
+			suggestions={categoryPageLinks}
+			onsuggest={(slug) => {
+				filters.clear();
+				selectCategory(slug);
+			}}
 		/>
+		<CategoryLinks categories={categoryPageLinks} heading="Páginas de categorias" />
 	</main>
 
 	<SiteFooter />

@@ -19,7 +19,8 @@ export const load: PageServerLoad = async ({ cookies, fetch, setHeaders, url }) 
 		'cache-control': 'private, no-store',
 		'x-content-type-options': 'nosniff',
 		'x-frame-options': 'DENY',
-		'referrer-policy': 'no-referrer'
+		// no-referrer makes browsers send "Origin: null" on same-site form POSTs (logout), which CSRF rejects
+		'referrer-policy': 'same-origin'
 	});
 
 	if (

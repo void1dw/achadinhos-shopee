@@ -10,7 +10,7 @@ export type DateRange = {
 type ReportRow = Record<string, string | number>;
 
 type ReportRequest = {
-	dateRanges: DateRange[];
+	dateRanges?: DateRange[];
 	dimensions: { name: string }[];
 	metrics: { name: string }[];
 	dimensionFilter?: {
@@ -40,16 +40,22 @@ type ReportResponse = {
 	rowCount?: number;
 };
 
-export type Ga4Reports = {
-	summary: ReportRow[];
-	daily: ReportRow[];
-	dailyCommercialEvents: ReportRow[];
-	acquisition: ReportRow[];
-	productSelections: ReportRow[];
-	affiliateProducts: ReportRow[];
-	affiliateDomains: ReportRow[];
-	categoryInterest: ReportRow[];
+export type Ga4ReportSection =
+	| 'summary'
+	| 'daily'
+	| 'dailyCommercialEvents'
+	| 'acquisition'
+	| 'productSelections'
+	| 'affiliateProducts'
+	| 'affiliateDomains'
+	| 'categoryInterest';
+
+export type Ga4Reports = Record<Ga4ReportSection, ReportRow[]> & {
+	errors: Partial<Record<Ga4ReportSection, string>>;
 };
+
+// A failure limited to one report (e.g. an unregistered custom dimension).
+class Ga4SectionError extends Error {}
 
 export class Ga4ReportingError extends Error {
 	constructor(
@@ -132,10 +138,11 @@ async function fetchAccessToken(email: string, privateKey: string): Promise<stri
 async function runReport(
 	propertyId: string,
 	accessToken: string,
-	report: ReportRequest
+	report: ReportRequest,
+	method: 'runReport' | 'runRealtimeReport' = 'runReport'
 ): Promise<ReportRow[]> {
 	const response = await fetch(
-		`${DATA_API_URL}/properties/${encodeURIComponent(propertyId)}:runReport`,
+		`${DATA_API_URL}/properties/${encodeURIComponent(propertyId)}:${method}`,
 		{
 			method: 'POST',
 			headers: {
@@ -147,7 +154,20 @@ async function runReport(
 	);
 	const result: unknown = await response.json().catch(() => null);
 	if (!response.ok || !isRecord(result)) {
-		throw new Ga4ReportingError('Google Analytics Data API report request failed.', 502);
+		// Authentication, authorization and property errors affect every report and must not look like missing data.
+		if ([401, 403, 404].includes(response.status)) {
+			throw new Ga4ReportingError(
+				`Google Analytics Data API denied access to the property (HTTP ${response.status}).`,
+				502
+			);
+		}
+		const detail =
+			isRecord(result) && isRecord(result.error) && typeof result.error.message === 'string'
+				? result.error.message.slice(0, 200)
+				: '';
+		throw new Ga4SectionError(
+			`Data API HTTP ${response.status}${detail ? `: ${detail}` : ''}`.trim()
+		);
 	}
 
 	const data = result as ReportResponse;
@@ -188,13 +208,12 @@ function eventFilterAny(eventNames: string[]): ReportRequest['dimensionFilter'] 
 	};
 }
 
-export async function getGa4Reports(
-	env: Pick<
-		Cloudflare.Env,
-		'GA4_PROPERTY_ID' | 'GA4_SERVICE_ACCOUNT_EMAIL' | 'GA4_SERVICE_ACCOUNT_PRIVATE_KEY'
-	>,
-	dateRange: DateRange
-): Promise<Ga4Reports> {
+type Ga4Env = Pick<
+	Cloudflare.Env,
+	'GA4_PROPERTY_ID' | 'GA4_SERVICE_ACCOUNT_EMAIL' | 'GA4_SERVICE_ACCOUNT_PRIVATE_KEY'
+>;
+
+async function authenticate(env: Ga4Env): Promise<{ propertyId: string; accessToken: string }> {
 	const {
 		GA4_PROPERTY_ID: propertyId,
 		GA4_SERVICE_ACCOUNT_EMAIL: email,
@@ -203,52 +222,89 @@ export async function getGa4Reports(
 	if (!propertyId || !/^\d+$/.test(propertyId) || !email || !privateKey) {
 		throw new Ga4ReportingError('GA4 reporting credentials are not configured.', 503);
 	}
+	return { propertyId, accessToken: await fetchAccessToken(email, privateKey) };
+}
 
-	const accessToken = await fetchAccessToken(email, privateKey);
+export type Ga4Realtime = {
+	activeUsers: number;
+	screenPageViews: number;
+	events: { eventName: string; eventCount: number }[];
+	fetchedAt: string;
+};
+
+// Realtime covers the last 30 minutes. It does not support customEvent:* dimensions,
+// so per-product and per-domain breakdowns are only available in the historical reports.
+export async function getGa4Realtime(env: Ga4Env): Promise<Ga4Realtime> {
+	const { propertyId, accessToken } = await authenticate(env);
+	const [totals, events] = await Promise.all([
+		runReport(
+			propertyId,
+			accessToken,
+			{
+				dimensions: [],
+				metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }],
+				limit: '1'
+			},
+			'runRealtimeReport'
+		),
+		runReport(
+			propertyId,
+			accessToken,
+			{
+				dimensions: [{ name: 'eventName' }],
+				metrics: [{ name: 'eventCount' }],
+				limit: '50'
+			},
+			'runRealtimeReport'
+		)
+	]);
+	return {
+		activeUsers: Number(totals[0]?.activeUsers ?? 0),
+		screenPageViews: Number(totals[0]?.screenPageViews ?? 0),
+		events: events
+			.map((row) => ({ eventName: String(row.eventName), eventCount: Number(row.eventCount) }))
+			.sort((left, right) => right.eventCount - left.eventCount),
+		fetchedAt: new Date().toISOString()
+	};
+}
+
+export async function getGa4Reports(env: Ga4Env, dateRange: DateRange): Promise<Ga4Reports> {
+	const { propertyId, accessToken } = await authenticate(env);
 	const range = { dateRanges: [dateRange] };
-	const [
-		summary,
-		daily,
-		dailyCommercialEvents,
-		acquisition,
-		productSelections,
-		affiliateProducts,
-		affiliateDomains,
-		categoryInterest
-	] = await Promise.all([
-		runReport(propertyId, accessToken, {
+	const requests: Record<Ga4ReportSection, ReportRequest> = {
+		summary: {
 			...range,
 			dimensions: [],
 			metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }, { name: 'totalUsers' }],
 			limit: '1'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		daily: {
 			...range,
 			dimensions: [{ name: 'date' }],
 			metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }, { name: 'totalUsers' }],
 			limit: '100'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		dailyCommercialEvents: {
 			...range,
 			dimensions: [{ name: 'date' }, { name: 'eventName' }],
 			metrics: [{ name: 'eventCount' }],
 			dimensionFilter: eventFilterAny(['select_item', 'affiliate_click', 'select_category']),
 			limit: '300'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		acquisition: {
 			...range,
 			dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
 			metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
 			limit: '50'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		productSelections: {
 			...range,
 			dimensions: [{ name: 'itemId' }, { name: 'itemName' }, { name: 'itemCategory' }],
-			metrics: [{ name: 'itemsClicked' }],
+			metrics: [{ name: 'itemsClickedInList' }],
 			dimensionFilter: eventFilter('select_item'),
 			limit: '100'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		affiliateProducts: {
 			...range,
 			dimensions: [
 				{ name: 'customEvent:affiliate_product_id' },
@@ -258,31 +314,38 @@ export async function getGa4Reports(
 			metrics: [{ name: 'eventCount' }],
 			dimensionFilter: eventFilter('affiliate_click'),
 			limit: '100'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		affiliateDomains: {
 			...range,
 			dimensions: [{ name: 'customEvent:link_domain' }],
 			metrics: [{ name: 'eventCount' }],
 			dimensionFilter: eventFilter('affiliate_click'),
 			limit: '50'
-		}),
-		runReport(propertyId, accessToken, {
+		},
+		categoryInterest: {
 			...range,
 			dimensions: [{ name: 'customEvent:category_name' }],
 			metrics: [{ name: 'eventCount' }],
 			dimensionFilter: eventFilter('select_category'),
 			limit: '100'
-		})
-	]);
-
-	return {
-		summary,
-		daily,
-		dailyCommercialEvents,
-		acquisition,
-		productSelections,
-		affiliateProducts,
-		affiliateDomains,
-		categoryInterest
+		}
 	};
+
+	const sections = Object.keys(requests) as Ga4ReportSection[];
+	const settled = await Promise.allSettled(
+		sections.map((section) => runReport(propertyId, accessToken, requests[section]))
+	);
+	const reports = { errors: {} } as Ga4Reports;
+	settled.forEach((outcome, index) => {
+		const section = sections[index];
+		if (outcome.status === 'fulfilled') {
+			reports[section] = outcome.value;
+			return;
+		}
+		if (!(outcome.reason instanceof Ga4SectionError)) throw outcome.reason;
+		console.error(`GA4 report "${section}" unavailable: ${outcome.reason.message}`);
+		reports[section] = [];
+		reports.errors[section] = outcome.reason.message;
+	});
+	return reports;
 }

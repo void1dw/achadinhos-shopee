@@ -4,16 +4,39 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
-		<meta
-			name="google-site-verification"
-			content="EiJK1rP3g3JWdM3y3I5IyJ-vWp-jHfoHw1gUZYkifKY"
-		/>
+		<meta name="google-site-verification" content="EiJK1rP3g3JWdM3y3I5IyJ-vWp-jHfoHw1gUZYkifKY" />
 		<script async src="https://www.googletagmanager.com/gtag/js?id=G-LE7LEHM879"></script>
 		<script>
 			window.dataLayer = window.dataLayer || [];
 			function gtag() {
 				dataLayer.push(arguments);
 			}
+			// Official GA4 opt-out flag, evaluated at send time, so it is kept in sync with the
+			// current path before every navigation (including client-side history changes).
+			(function () {
+				var flag = 'ga-disable-G-LE7LEHM879';
+				var isAdmin = function (pathname) {
+					return pathname === '/admin' || pathname.indexOf('/admin/') === 0;
+				};
+				var sync = function (url) {
+					try {
+						window[flag] = isAdmin(new URL(url || location.href, location.href).pathname);
+					} catch (e) {
+						window[flag] = isAdmin(location.pathname);
+					}
+				};
+				['pushState', 'replaceState'].forEach(function (method) {
+					var original = history[method];
+					history[method] = function (state, title, url) {
+						sync(url);
+						return original.apply(this, arguments);
+					};
+				});
+				window.addEventListener('popstate', function () {
+					sync();
+				});
+				sync();
+			})();
 			gtag('js', new Date());
 			gtag('config', 'G-LE7LEHM879');
 		</script>
