@@ -1,10 +1,16 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { categoryPagesWithProducts, categoryProducts, findCategoryPage } from '../../../lib/category-pages';
+import {
+	CATEGORY_PAGES,
+	categoryPagesWithProducts,
+	categoryProducts,
+	findCategoryPage
+} from '../../../lib/category-pages';
 import { SHEET_PRODUCTS_CSV_URL, SHOW_DEMO_DATA } from '../../../lib/config';
 import { demoProducts } from '../../../lib/data/demo-data';
 import { toShowcase } from '../../../lib/products';
 import { loadProducts } from '../../../lib/server/sheets';
+import type { Product } from '../../../lib/types';
 
 export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
 	const category = findCategoryPage(params.slug);
@@ -13,40 +19,46 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
 		error(404, 'Categoria não encontrada');
 	}
 
-	let products;
+	let products: Product[];
 	let stale = false;
+	let productsUnavailable = false;
 	if (SHOW_DEMO_DATA) {
 		products = demoProducts;
 	} else {
 		const result = await loadProducts(fetch, SHEET_PRODUCTS_CSV_URL);
 		if (result.failed && !result.stale) {
-			setHeaders({ 'cache-control': 'no-store' });
-			error(503, 'Não foi possível carregar as ofertas agora.');
+			products = [];
+			productsUnavailable = true;
+		} else {
+			products = result.items;
+			stale = result.stale ?? false;
 		}
-		products = result.items;
-		stale = result.stale ?? false;
 	}
 
 	const showcaseProducts = toShowcase(products);
 	const availableCategories = categoryPagesWithProducts(showcaseProducts);
-	if (!availableCategories.some((availableCategory) => availableCategory.slug === category.slug)) {
-		setHeaders({ 'cache-control': 'no-store' });
-		error(404, 'Categoria não encontrada');
-	}
-
 	const items = categoryProducts(showcaseProducts, category);
 	const relatedCategories = category.related
-		.map((slug) => availableCategories.find((candidate) => candidate.slug === slug))
+		.map((slug) => {
+			const availableCategory = availableCategories.find((candidate) => candidate.slug === slug);
+			if (availableCategory || !productsUnavailable) return availableCategory;
+
+			const categoryPage = CATEGORY_PAGES.find((candidate) => candidate.slug === slug);
+			return categoryPage
+				? { slug: categoryPage.slug, label: categoryPage.label, count: 0 }
+				: undefined;
+		})
 		.filter((candidate) => candidate !== undefined);
 
 	setHeaders({
-		'cache-control': stale ? 'no-store' : 'public, max-age=0, s-maxage=300'
+		'cache-control': productsUnavailable || stale ? 'no-store' : 'public, max-age=0, s-maxage=300'
 	});
 
 	return {
 		category,
 		items,
 		relatedCategories,
-		productsStale: stale
+		productsStale: stale,
+		productsUnavailable
 	};
 };

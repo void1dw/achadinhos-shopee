@@ -151,10 +151,15 @@
 			/>
 		{:else}
 			<section class="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6">
-				<p class="text-lg font-bold text-lia-navy">Ainda não há ofertas nesta categoria.</p>
-				<p class="mt-2 text-sm text-lia-muted">
-					Confira outras categorias enquanto novos produtos são publicados.
-				</p>
+				{#if data.productsUnavailable}
+					<p class="text-lg font-bold text-lia-navy">Não foi possível carregar as ofertas agora.</p>
+					<p class="mt-2 text-sm text-lia-muted">Tente novamente em instantes.</p>
+				{:else}
+					<p class="text-lg font-bold text-lia-navy">Ainda não há ofertas nesta categoria.</p>
+					<p class="mt-2 text-sm text-lia-muted">
+						Confira outras categorias enquanto novos produtos são publicados.
+					</p>
+				{/if}
 			</section>
 		{/if}
 	</main>
