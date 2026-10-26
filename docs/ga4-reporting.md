@@ -9,19 +9,28 @@ The private endpoint `GET /api/analytics/report` uses the Google Analytics Data 
 1. In Google Cloud Console, select or create a project and enable **Google Analytics Data API**.
 2. Create a service account and a JSON key. Keep the downloaded key outside the repository.
 3. In GA4 Admin, copy the numeric **Property ID** and add the service-account email as a property user with the **Viewer** role.
-4. In GA4 Admin → **Custom definitions**, register three event-scoped custom dimensions:
+4. In GA4 Admin → **Custom definitions**, register five event-scoped custom dimensions:
    - `link_domain` (description: affiliate destination hostname)
    - `affiliate_product_id` (description: product ID associated with an affiliate click)
+   - `affiliate_product_name` (description: product name associated with an affiliate click)
+   - `affiliate_product_category` (description: product category associated with an affiliate click)
    - `category_name` (description: selected site category)
-   Custom dimensions are not retroactive and may take time to appear in reports.
+     Custom dimensions are not retroactive and may take time to appear in reports.
 5. In Cloudflare Workers → `achadinholia` → **Settings → Variables and Secrets**, create these secrets:
    - `GA4_PROPERTY_ID`: numeric GA4 property ID
    - `GA4_SERVICE_ACCOUNT_EMAIL`: service-account email
    - `GA4_SERVICE_ACCOUNT_PRIVATE_KEY`: the `private_key` value from the JSON key
    - `GA4_DASHBOARD_TOKEN`: a new, high-entropy random secret (at least 32 random bytes)
+   - `ADMIN_USERNAME`: a unique administrator login name
+   - `ADMIN_PASSWORD`: a randomly generated password with at least 32 characters
+   - `ADMIN_SESSION_SECRET`: an independent random value with at least 32 characters for signing 8-hour sessions
 6. Keep the service account key and dashboard token out of Git, browser code, query strings, and chat. Rotate/revoke them if they are exposed.
 
-Until all four Worker secrets, the API enablement, the GA4 property permission, and all three custom dimensions are configured, the endpoint will not return complete reports.
+Until all seven Worker secrets, the API enablement, the GA4 property permission, and all five custom dimensions are configured, the dashboard will show the protected integration-pending state or incomplete custom-dimension reports.
+
+## Administrator access
+
+Open `/admin`. A server-side username/password check issues an 8-hour HMAC-signed `HttpOnly`, `Secure` (on HTTPS), `SameSite=Strict` cookie. The page server uses the report API token internally; neither that token nor Google credentials are returned to the browser. Configure a long random password and keep it distinct from the API token. For organizations with Cloudflare Zero Trust, add Cloudflare Access on a custom domain as an additional identity-aware gate.
 
 ## Request the report
 
@@ -33,4 +42,4 @@ curl --fail-with-body \
   "https://achadinholia.brunomarinhomattoss2.workers.dev/api/analytics/report?startDate=2026-10-01&endDate=2026-10-26"
 ```
 
-The endpoint is uncached and makes seven read-only Data API reports per request. It returns `401` for a missing/invalid token, `400` for an invalid date range, `503` when credentials are not configured, and `502` when Google OAuth or the Data API fails.
+The endpoint is uncached and makes eight read-only Data API reports per request. It returns `401` for a missing/invalid token, `400` for an invalid date range, `503` when credentials are not configured, and `502` when Google OAuth or the Data API fails.

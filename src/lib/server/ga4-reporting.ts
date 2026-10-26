@@ -41,6 +41,7 @@ type ReportResponse = {
 };
 
 export type Ga4Reports = {
+	summary: ReportRow[];
 	daily: ReportRow[];
 	dailyCommercialEvents: ReportRow[];
 	acquisition: ReportRow[];
@@ -206,6 +207,7 @@ export async function getGa4Reports(
 	const accessToken = await fetchAccessToken(email, privateKey);
 	const range = { dateRanges: [dateRange] };
 	const [
+		summary,
 		daily,
 		dailyCommercialEvents,
 		acquisition,
@@ -214,68 +216,67 @@ export async function getGa4Reports(
 		affiliateDomains,
 		categoryInterest
 	] = await Promise.all([
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'date' }],
-				metrics: [
-					{ name: 'screenPageViews' },
-					{ name: 'sessions' },
-					{ name: 'totalUsers' }
-				],
-				limit: '100'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'date' }, { name: 'eventName' }],
-				metrics: [{ name: 'eventCount' }],
-				dimensionFilter: eventFilterAny([
-					'select_item',
-					'affiliate_click',
-					'select_category'
-				]),
-				limit: '300'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
-				metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
-				limit: '50'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [
-					{ name: 'itemId' },
-					{ name: 'itemName' },
-					{ name: 'itemCategory' }
-				],
-				metrics: [{ name: 'itemsClicked' }],
-				dimensionFilter: eventFilter('select_item'),
-				limit: '100'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'customEvent:affiliate_product_id' }],
-				metrics: [{ name: 'eventCount' }],
-				dimensionFilter: eventFilter('affiliate_click'),
-				limit: '100'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'customEvent:link_domain' }],
-				metrics: [{ name: 'eventCount' }],
-				dimensionFilter: eventFilter('affiliate_click'),
-				limit: '50'
-			}),
-			runReport(propertyId, accessToken, {
-				...range,
-				dimensions: [{ name: 'customEvent:category_name' }],
-				metrics: [{ name: 'eventCount' }],
-				dimensionFilter: eventFilter('select_category'),
-				limit: '100'
-			})
-		]);
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [],
+			metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }, { name: 'totalUsers' }],
+			limit: '1'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'date' }],
+			metrics: [{ name: 'screenPageViews' }, { name: 'sessions' }, { name: 'totalUsers' }],
+			limit: '100'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'date' }, { name: 'eventName' }],
+			metrics: [{ name: 'eventCount' }],
+			dimensionFilter: eventFilterAny(['select_item', 'affiliate_click', 'select_category']),
+			limit: '300'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
+			metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+			limit: '50'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'itemId' }, { name: 'itemName' }, { name: 'itemCategory' }],
+			metrics: [{ name: 'itemsClicked' }],
+			dimensionFilter: eventFilter('select_item'),
+			limit: '100'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [
+				{ name: 'customEvent:affiliate_product_id' },
+				{ name: 'customEvent:affiliate_product_name' },
+				{ name: 'customEvent:affiliate_product_category' }
+			],
+			metrics: [{ name: 'eventCount' }],
+			dimensionFilter: eventFilter('affiliate_click'),
+			limit: '100'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'customEvent:link_domain' }],
+			metrics: [{ name: 'eventCount' }],
+			dimensionFilter: eventFilter('affiliate_click'),
+			limit: '50'
+		}),
+		runReport(propertyId, accessToken, {
+			...range,
+			dimensions: [{ name: 'customEvent:category_name' }],
+			metrics: [{ name: 'eventCount' }],
+			dimensionFilter: eventFilter('select_category'),
+			limit: '100'
+		})
+	]);
 
 	return {
+		summary,
 		daily,
 		dailyCommercialEvents,
 		acquisition,

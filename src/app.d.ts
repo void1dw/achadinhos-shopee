@@ -21,6 +21,9 @@ declare global {
 			GA4_SERVICE_ACCOUNT_EMAIL?: string;
 			GA4_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
 			GA4_DASHBOARD_TOKEN?: string;
+			ADMIN_USERNAME?: string;
+			ADMIN_PASSWORD?: string;
+			ADMIN_SESSION_SECRET?: string;
 		}
 	}
 }

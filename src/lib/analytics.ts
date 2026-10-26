@@ -32,6 +32,8 @@ function sendAffiliateClick(product: ShowcaseProduct): void {
 		currency: CURRENCY,
 		link_domain: linkDomain,
 		affiliate_product_id: product.id,
+		affiliate_product_name: product.name,
+		affiliate_product_category: product.categoryLabel,
 		items: [
 			{
 				item_id: product.id,
