@@ -169,8 +169,6 @@
 	}
 	.sort-inner {
 		min-height: 3.75rem;
-		flex-wrap: wrap;
-		row-gap: 0.5rem;
 	}
 	.sort-label {
 		margin-right: 0.2rem;
@@ -187,12 +185,12 @@
 		gap: 0.3rem;
 		height: 2.75rem;
 		padding: 0 0.9rem;
-		border: 1px solid #e8e4dc;
+		border: 1px solid var(--lia-line);
 		border-radius: 999px;
-		background: rgb(255 255 255 / 90%);
+		background: rgb(255 255 255 / 88%);
 		color: #34425b;
-		font-size: 0.78rem;
-		font-weight: 650;
+		font-size: 0.8125rem;
+		font-weight: 600;
 		white-space: nowrap;
 		transition:
 			background 150ms,
@@ -202,12 +200,14 @@
 	}
 	.sort-row {
 		display: flex;
+		flex: 1;
 		flex-wrap: wrap;
-		gap: 0.4rem;
+		gap: 0.45rem;
 		min-width: 0;
 	}
 	.chip:hover {
-		border-color: rgb(244 99 16 / 50%);
+		border-color: rgb(244 99 16 / 55%);
+		box-shadow: 0 3px 9px rgb(13 40 107 / 7%);
 	}
 	.chip.on {
 		border-color: var(--lia-navy);
@@ -276,12 +276,8 @@
 	}
 	@media (max-width: 639px) {
 		.sort-inner {
-			align-items: flex-start;
-			padding-top: 0.7rem;
-			padding-bottom: 0.75rem;
-		}
-		.sort-label {
-			width: 100%;
+			padding-top: 0.6rem;
+			padding-bottom: 0.65rem;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

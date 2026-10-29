@@ -111,9 +111,10 @@
 		const url = new URL(window.location.href);
 		if (id) url.searchParams.set('sub', id);
 		else url.searchParams.delete('sub');
+		// shallow: só atualiza a URL; o filtro já foi aplicado no navegador, sem nova carga do servidor.
 		void goto(`${url.pathname}${url.search}${url.hash}`, {
 			replace: true,
-			reset: false
+			shallow: true
 		});
 	}
 </script>

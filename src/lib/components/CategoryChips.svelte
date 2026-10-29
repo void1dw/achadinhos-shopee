@@ -49,10 +49,7 @@
 {/snippet}
 
 {#if categories.length > 0}
-	<section
-		class="category-section mx-auto max-w-7xl px-4 pt-5 sm:px-6"
-		aria-labelledby="category-chips-label"
-	>
+	<div class="mx-auto max-w-7xl px-4 pt-5 sm:px-6">
 		<div class="category-panel">
 			<div class="category-heading">
 				<span class="category-kicker">Explore a vitrine</span>
@@ -80,13 +77,10 @@
 				</div>
 			{/each}
 		</div>
-	</section>
+	</div>
 {/if}
 
 <style>
-	.category-section {
-		padding-top: 1.25rem;
-	}
 	.category-panel {
 		padding: 1rem 1.1rem 1.05rem;
 		border: 1px solid var(--lia-line);
@@ -178,6 +172,11 @@
 	.chip.on .count {
 		background: rgb(255 255 255 / 16%);
 		color: #fff;
+	}
+	@media (min-width: 640px) {
+		.chips {
+			overflow: visible;
+		}
 	}
 	@media (max-width: 639px) {
 		.category-panel {
