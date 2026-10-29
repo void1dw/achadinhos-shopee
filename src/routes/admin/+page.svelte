@@ -324,6 +324,26 @@
 			</p>
 		</div>
 
+		<section class="report-card" aria-labelledby="product-report-heading">
+			<div class="report-card-copy">
+				<p class="report-kicker">Qualidade do catálogo</p>
+				<h2 id="product-report-heading">Relatório de produtos</h2>
+				<p>
+					Consulte produtos rejeitados, categorias não classificadas, imagens ausentes e avisos de
+					duplicidade.
+				</p>
+			</div>
+			<a
+				class="report-card-link"
+				href="/admin/relatorio-produtos.txt?detalhes=1"
+				target="_blank"
+				rel="noreferrer"
+			>
+				Abrir relatório completo
+				<span aria-hidden="true">↗</span>
+			</a>
+		</section>
+
 		<section class="live" aria-labelledby="live-heading">
 			<div class="live-head">
 				<div>
@@ -832,6 +852,58 @@
 	.metric-card-accent strong {
 		color: var(--lia-orange);
 	}
+	.report-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1.25rem;
+		margin-bottom: 1.25rem;
+		border: 1px solid rgb(244 99 16 / 24%);
+		border-radius: 1.5rem;
+		background: linear-gradient(110deg, #fff 55%, #fff3e9);
+		padding: 1.25rem 1.5rem;
+		box-shadow: 0 8px 24px rgb(13 40 107 / 4%);
+	}
+	.report-card-copy {
+		min-width: 0;
+	}
+	.report-kicker {
+		color: var(--lia-orange);
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+	.report-card h2 {
+		margin-top: 0.2rem;
+		color: var(--lia-navy);
+		font-size: 1.15rem;
+		font-weight: 900;
+	}
+	.report-card-copy > p:last-child {
+		margin-top: 0.3rem;
+		color: var(--lia-muted);
+		font-size: 0.82rem;
+		line-height: 1.5;
+	}
+	.report-card-link {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: 0.45rem;
+		min-height: 2.75rem;
+		border-radius: 0.8rem;
+		background: var(--lia-orange);
+		padding: 0.7rem 1rem;
+		color: #fff;
+		font-size: 0.8rem;
+		font-weight: 800;
+		text-decoration: none;
+		transition: background 150ms ease;
+	}
+	.report-card-link:hover {
+		background: var(--lia-navy);
+	}
 	.metric-note {
 		color: var(--lia-muted);
 		font-size: 0.75rem;
@@ -985,6 +1057,15 @@
 		}
 		.metric-card {
 			min-height: 130px;
+		}
+		.report-card {
+			align-items: stretch;
+			flex-direction: column;
+			padding: 1.1rem;
+		}
+		.report-card-link {
+			justify-content: center;
+			width: 100%;
 		}
 	}
 </style>
