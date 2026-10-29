@@ -20,7 +20,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Confira ofertas de eletrônicos, celulares, computadores e itens de áudio selecionados pela Lia.',
 		intro:
-			'Explore eletrônicos selecionados na Shopee, com opções de celulares, computadores, áudio e outros dispositivos. Confira os preços e a disponibilidade diretamente na loja antes de comprar.',
+			'Encontre eletrônicos selecionados pela Lia para trabalho, estudo, entretenimento e uso diário. Compare as opções disponíveis por tipo de produto e preço, conferindo sempre especificações, compatibilidade e disponibilidade na Shopee.',
 		categoryKeys: ['eletronicos', 'celulares-e-dispositivos', 'computadores-e-acessorios'],
 		related: ['casa', 'acessorios', 'games']
 	},
@@ -31,7 +31,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Veja utilidades, itens para casa, construção e eletrodomésticos disponíveis na seleção da Lia.',
 		intro:
-			'Encontre produtos para diferentes ambientes e tarefas do dia a dia, de utilidades para casa a itens de construção e eletrodomésticos. Consulte cada oferta para confirmar detalhes e disponibilidade.',
+			'Explore achadinhos para cozinha, organização, limpeza, manutenção e outros ambientes da casa. A seleção reúne utilidades e eletrodomésticos variados; confira medidas, voltagem, materiais e disponibilidade na página de cada oferta.',
 		categoryKeys: ['casa', 'casa-e-construcao', 'eletrodomesticos'],
 		related: ['eletronicos', 'beleza', 'automotivo']
 	},
@@ -42,7 +42,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Confira produtos de beleza e cuidados disponíveis na seleção de ofertas da Lia.',
 		intro:
-			'Esta seleção reúne os produtos de beleza publicados na vitrine da Lia. Veja as informações de cada item e confirme preço, composição e disponibilidade na página do vendedor.',
+			'Veja produtos selecionados para cuidados pessoais, cabelo, pele e rotina de beleza. Antes de comprar, confira composição, indicação de uso, tamanho e demais informações fornecidas pelo vendedor.',
 		categoryKeys: ['beleza'],
 		related: ['saude', 'acessorios', 'moda-feminina']
 	},
@@ -53,7 +53,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Explore roupas, calçados, bolsas e acessórios de moda entre as ofertas selecionadas pela Lia.',
 		intro:
-			'Explore uma seleção de roupas e complementos para diferentes estilos, incluindo calçados, bolsas e acessórios. As opções disponíveis variam conforme os produtos publicados na vitrine.',
+			'Encontre roupas, calçados, bolsas e acessórios organizados em seleções de moda feminina, masculina e outras categorias. Compare estilos e preços, verificando medidas, materiais e disponibilidade antes de comprar.',
 		categoryKeys: [
 			'moda-feminina',
 			'moda-masculina',
@@ -77,7 +77,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Veja roupas femininas selecionadas pela Lia e confira as ofertas disponíveis na Shopee.',
 		intro:
-			'Aqui estão as ofertas classificadas como roupas femininas na seleção atual da Lia. Confira os detalhes de tamanho, material e disponibilidade na página de cada produto.',
+			'Explore a seleção atual de roupas femininas da Lia, com as peças disponíveis na vitrine. Confira fotos, tabela de medidas, material e variações de cor diretamente com o vendedor antes de comprar.',
 		categoryKeys: ['moda-feminina'],
 		related: ['moda', 'beleza', 'acessorios']
 	},
@@ -88,7 +88,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Confira roupas e itens de moda masculina selecionados pela Lia, com disponibilidade consultada na Shopee.',
 		intro:
-			'Esta página reúne roupas masculinas e itens de moda classificados para o público masculino na vitrine. Consulte as opções e confirme medidas e disponibilidade com o vendedor.',
+			'Veja roupas e acessórios masculinos publicados na seleção da Lia. Para escolher melhor, compare medidas, modelagem, tecido e cores disponíveis na página do vendedor antes de finalizar a compra.',
 		categoryKeys: ['moda-masculina', 'sapatos-masculinos', 'calcados-masculinos', 'bolsas-masculinas'],
 		related: ['moda', 'calcados', 'acessorios']
 	},
@@ -99,7 +99,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Explore acessórios para veículos e outros produtos automotivos publicados na seleção da Lia.',
 		intro:
-			'Confira produtos automotivos e acessórios para veículos reunidos nesta seleção. Verifique compatibilidade, especificações e disponibilidade com o vendedor antes da compra.',
+			'Encontre acessórios e produtos automotivos publicados na vitrine da Lia. Antes de comprar, confirme modelo, ano, medidas, instalação e compatibilidade com o vendedor.',
 		categoryKeys: ['automotivo', 'acessorios-para-veiculos'],
 		related: ['eletronicos', 'casa', 'esportes-e-lazer']
 	},
@@ -110,7 +110,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Veja acessórios de moda e relógios disponíveis entre os produtos selecionados pela Lia.',
 		intro:
-			'Explore acessórios de moda e relógios presentes na vitrine. Como os modelos e detalhes variam por produto, consulte as informações completas na página de cada oferta.',
+			'Explore acessórios e relógios selecionados pela Lia para complementar diferentes estilos. Compare material, dimensões, acabamento e variações disponíveis em cada oferta antes de comprar.',
 		categoryKeys: ['acessorios', 'acessorios-de-moda', 'relogios'],
 		related: ['moda', 'moda-feminina', 'moda-masculina']
 	},
@@ -121,7 +121,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Confira produtos classificados em saúde e bem-estar na seleção atual de ofertas da Lia.',
 		intro:
-			'Esta seleção reúne produtos publicados na categoria de saúde. Leia as informações do fabricante e do vendedor e confirme se o item atende às suas necessidades.',
+			'Veja produtos classificados em saúde e bem-estar na seleção atual. Use as informações apenas como referência de compra: confira composição, registro quando aplicável e instruções do fabricante.',
 		categoryKeys: ['saude'],
 		related: ['beleza', 'esportes-e-lazer', 'alimentos']
 	},
@@ -132,7 +132,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Explore produtos de esportes e lazer disponíveis na seleção de ofertas da Lia.',
 		intro:
-			'Veja os produtos de esportes e lazer que fazem parte da vitrine atual. Confira descrição, medidas e disponibilidade diretamente com a loja responsável pela oferta.',
+			'Encontre produtos para esporte, treino e momentos de lazer na seleção da Lia. Antes de comprar, confira medidas, materiais, capacidade e indicação de uso de cada item.',
 		categoryKeys: ['esportes-e-lazer', 'esporte'],
 		related: ['saude', 'automotivo', 'casa']
 	},
@@ -143,7 +143,7 @@ export const CATEGORY_PAGES: CategoryPage[] = [
 		description:
 			'Explore calçados femininos e masculinos entre as ofertas de moda selecionadas pela Lia.',
 		intro:
-			'Veja os calçados publicados na seleção, com opções classificadas para diferentes públicos. Confira numeração, medidas e disponibilidade na página de cada produto.',
+			'Explore calçados publicados na seleção da Lia para diferentes estilos e públicos. Confira tabela de medidas, material, formato e cores disponíveis antes de escolher a numeração.',
 		categoryKeys: [
 			'sapatos-masculinos',
 			'calcados-masculinos',
