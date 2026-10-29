@@ -19,6 +19,7 @@ export class Filters {
 	/** Quantos filtros do painel estão ligados (aparece no selo do botão). */
 	get activeCount(): number {
 		return [
+			this.categorySlug !== '',
 			this.discountOnly,
 			this.favoritesOnly,
 			this.minPrice.trim() !== '',

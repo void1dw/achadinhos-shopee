@@ -66,44 +66,6 @@
 			A Lia não conseguiu buscar os produtos agora. Tente de novo em instantes.
 		</p>
 	{:else}
-		{#if recentItems.length > 0}
-			<section class="recent" aria-labelledby="recent-heading">
-				<div class="recent-heading">
-					<div>
-						<p class="recent-kicker">Pra continuar de onde parou</p>
-						<h2 id="recent-heading">Vistos recentemente</h2>
-					</div>
-					<span>{recentItems.length} {recentItems.length === 1 ? 'produto' : 'produtos'}</span>
-				</div>
-				<div class="recent-list">
-					{#each recentItems as product (product.id)}
-						<a
-							class="recent-item focus-ring"
-							href={product.url}
-							target="_blank"
-							rel="noopener noreferrer sponsored"
-							onclick={() => {
-								onview(product.id);
-								trackProductListClick(product, 'recent_products', 'Produtos vistos recentemente');
-							}}
-						>
-							<img src={product.image} alt="" width="52" height="52" loading="lazy" />
-							<span class="recent-text">
-								<span class="recent-name">{product.name}</span>
-								<strong>{money(product.price)}</strong>
-							</span>
-						</a>
-					{/each}
-				</div>
-			</section>
-		{/if}
-
-		<p class="notice">
-			Preços e disponibilidade são definidos pela Shopee e podem mudar. Podemos receber comissão
-			pelas compras realizadas pelos nossos links. Cupons: resgate-os na Shopee antes de finalizar a
-			compra.
-		</p>
-
 		<p class="mb-3 text-sm text-lia-muted" aria-live="polite">
 			{#if items.length === 0}
 				Nenhum produto encontrado
@@ -161,6 +123,44 @@
 				{/each}
 			</div>
 
+			<p class="notice">
+				Preços e disponibilidade são definidos pela Shopee e podem mudar. Podemos receber comissão
+				pelas compras realizadas pelos nossos links. Cupons: resgate-os na Shopee antes de finalizar
+				a compra.
+			</p>
+
+			{#if recentItems.length > 0}
+				<section class="recent" aria-labelledby="recent-heading">
+					<div class="recent-heading">
+						<div>
+							<p class="recent-kicker">Pra continuar de onde parou</p>
+							<h2 id="recent-heading">Vistos recentemente</h2>
+						</div>
+						<span>{recentItems.length} {recentItems.length === 1 ? 'produto' : 'produtos'}</span>
+					</div>
+					<div class="recent-list">
+						{#each recentItems as product (product.id)}
+							<a
+								class="recent-item focus-ring"
+								href={product.url}
+								target="_blank"
+								rel="noopener noreferrer sponsored"
+								onclick={() => {
+									onview(product.id);
+									trackProductListClick(product, 'recent_products', 'Produtos vistos recentemente');
+								}}
+							>
+								<img src={product.image} alt="" width="52" height="52" loading="lazy" />
+								<span class="recent-text">
+									<span class="recent-name">{product.name}</span>
+									<strong>{money(product.price)}</strong>
+								</span>
+							</a>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			{#if visible < items.length}
 				<div class="mt-6 text-center">
 					<button class="load-more focus-ring" onclick={() => (visible += PAGE_SIZE)}>
@@ -175,7 +175,7 @@
 
 <style>
 	.notice {
-		margin-bottom: 0.9rem;
+		margin: 0.9rem 0;
 		padding: 0.6rem 0.8rem;
 		border: 1px solid var(--lia-line);
 		border-radius: 12px;
@@ -303,7 +303,7 @@
 		}
 	}
 	.recent {
-		margin-bottom: 1.5rem;
+		margin: 0.9rem 0 1.5rem;
 		overflow: hidden;
 		border: 1px solid rgb(13 40 107 / 9%);
 		border-radius: 18px;

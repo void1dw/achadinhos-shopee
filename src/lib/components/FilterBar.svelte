@@ -47,7 +47,7 @@
 				bind:this={searchInput}
 				bind:value={filters.query}
 				placeholder="Buscar produto"
-				class="h-11 w-full rounded-full border border-lia-line bg-white py-2 pr-10 pl-10 text-sm text-lia-ink focus-ring placeholder:text-lia-muted focus:border-lia-orange"
+				class="h-11 w-full rounded-full border border-lia-line bg-white py-2 pr-10 pl-10 text-base text-lia-ink focus-ring placeholder:text-lia-muted focus:border-lia-orange sm:text-sm"
 			/>
 			{#if filters.query}
 				<button
@@ -84,8 +84,11 @@
 			{#if filters.activeCount > 0}<span class="badge">{filters.activeCount}</span>{/if}
 		</button>
 	</div>
+</section>
 
-	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 pb-2 sm:px-6">
+<!-- Ordenação e filtros avançados ficam fora da área fixa: rolam junto com a página -->
+<section class="border-b border-lia-line">
+	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
 		<span class="shrink-0 text-xs font-semibold text-lia-muted" id="sort-label">Ordenar:</span>
 		<div class="sort-row" role="group" aria-labelledby="sort-label">
 			{#each SORT_CHIPS as chip (chip.value)}
@@ -168,13 +171,9 @@
 	}
 	.sort-row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.4rem;
 		min-width: 0;
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-	.sort-row::-webkit-scrollbar {
-		display: none;
 	}
 	.chip:hover {
 		border-color: rgb(244 99 16 / 50%);
