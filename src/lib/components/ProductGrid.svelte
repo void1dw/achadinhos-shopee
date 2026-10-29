@@ -2,7 +2,7 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { Plus } from '@lucide/svelte';
 	import { trackProductListClick } from '../analytics';
-	import { money } from '../format';
+	import { priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 	import ProductCard from './ProductCard.svelte';
 
@@ -153,7 +153,7 @@
 								<img src={product.image} alt="" width="52" height="52" loading="lazy" />
 								<span class="recent-text">
 									<span class="recent-name">{product.name}</span>
-									<strong>{money(product.price)}</strong>
+									<strong>{priceLabel(product)}</strong>
 								</span>
 							</a>
 						{/each}

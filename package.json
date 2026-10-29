@@ -9,6 +9,7 @@
     "preview": "npm run build && wrangler dev",
     "prepare": "svelte-kit sync || echo ''",
     "check": "wrangler types && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "node --import ./scripts/register-ts.mjs --test \"tests/*.test.ts\"",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",

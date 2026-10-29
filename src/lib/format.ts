@@ -35,3 +35,7 @@ export function parsePrice(raw: string): number | undefined {
 	const number = Number(value);
 	return Number.isFinite(number) ? number : undefined;
 }
+
+/** Preço para exibição; em faixas de preço (priceMax) indica que o valor é o menor da faixa. */
+export const priceLabel = (product: { price: number; priceMax?: number }): string =>
+	product.priceMax !== undefined ? `A partir de ${money(product.price)}` : money(product.price);

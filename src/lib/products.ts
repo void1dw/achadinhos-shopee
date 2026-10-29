@@ -2,22 +2,36 @@ import { resolveCategory } from './categories';
 import { normalizeText } from './format';
 import type { Product, ShowcaseProduct } from './types';
 
-/** Padroniza a categoria e pré-calcula desconto e texto de busca (feito uma vez, não a cada filtro). */
+/**
+ * Desconto em %, só entre valores comparáveis: preço atual e original ambos únicos ou ambos
+ * intervalos (compara mínimo com mínimo). Caso contrário, ou sem preço original, não há desconto.
+ */
+export function discountPercent(product: Product): number | null {
+	const { price, priceMax, previousPrice, previousPriceMax } = product;
+	if (previousPrice === undefined || !(previousPrice > price)) return null;
+	if ((priceMax === undefined) !== (previousPriceMax === undefined)) return null;
+	const percent = Math.round((1 - price / previousPrice) * 100);
+	return percent > 0 ? percent : null;
+}
+
+/**
+ * Classifica cada produto na taxonomia e pré-calcula desconto e texto de busca (feito uma vez,
+ * não a cada filtro). Produtos sem categoria aprovada não entram na vitrine.
+ */
 export function toShowcase(products: Product[]): ShowcaseProduct[] {
-	return products.map((product) => {
-		const category = resolveCategory(product.category);
-		const { previousPrice } = product;
-		const percent =
-			previousPrice !== undefined && previousPrice > product.price
-				? Math.round((1 - product.price / previousPrice) * 100)
-				: 0;
+	return products.flatMap((product) => {
+		const resolution = resolveCategory(product.category);
+		if (resolution.status !== 'ok') return [];
+		const { category, path } = resolution;
+		const names = path.map((node) => node.name).join(' ');
 
 		return {
 			...product,
-			categoryKey: category.key,
-			categoryLabel: category.label,
-			searchText: normalizeText(`${product.name} ${category.label}`),
-			discountPercent: percent > 0 ? percent : null
+			categoryKey: category.id,
+			categoryLabel: category.name,
+			categoryPath: path.map((node) => node.id),
+			searchText: normalizeText(`${product.name} ${names}`),
+			discountPercent: discountPercent(product)
 		};
 	});
 }

@@ -1,4 +1,4 @@
-import { findCategoryPage } from './category-pages';
+import { isInCategory } from './categories';
 import { normalizeText, parsePrice } from './format';
 import { byNewest } from './products';
 import type { ShowcaseProduct } from './types';
@@ -37,11 +37,9 @@ export class Filters {
 		const min = parsePrice(this.minPrice);
 		const max = parsePrice(this.maxPrice);
 
-		const categoryKeys = new Set(findCategoryPage(this.categorySlug)?.categoryKeys);
-
 		const result = items.filter(
 			(p) =>
-				(categoryKeys.size === 0 || categoryKeys.has(p.categoryKey)) &&
+				(this.categorySlug === '' || isInCategory(p.categoryPath, this.categorySlug)) &&
 				terms.every((term) => p.searchText.includes(term)) &&
 				(!this.favoritesOnly || favoriteIds.includes(p.id)) &&
 				(!this.discountOnly || p.discountPercent !== null) &&

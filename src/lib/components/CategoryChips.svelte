@@ -1,19 +1,57 @@
 <script lang="ts">
-	type Category = { slug: string; label: string; count: number };
+	type Category = { slug: string; label: string; count: number; children?: Category[] };
 
 	type Props = {
 		categories: Category[];
-		/** Slug da categoria ativa ('' = todas). */
+		/** Id da categoria ativa em qualquer nível ('' = nenhuma). */
 		selected: string;
 		onselect: (slug: string) => void;
+		label?: string;
+		allLabel?: string;
 	};
-	let { categories, selected, onselect }: Props = $props();
+	let {
+		categories,
+		selected,
+		onselect,
+		label = 'Filtrar por categoria',
+		allLabel = 'Todas'
+	}: Props = $props();
+
+	function pathTo(nodes: Category[], id: string): Category[] {
+		for (const node of nodes) {
+			if (node.slug === id) return [node];
+			const below = pathTo(node.children ?? [], id);
+			if (below.length > 0) return [node, ...below];
+		}
+		return [];
+	}
+
+	const path = $derived(selected ? pathTo(categories, selected) : []);
+	// Linha 1: raiz; linha 2: filhos da raiz ativa; linha 3: filhos do segundo nível ativo.
+	const rows = $derived(
+		[0, 1].flatMap((depth) => {
+			const parent = path[depth];
+			return parent && (parent.children?.length ?? 0) > 0 ? [parent] : [];
+		})
+	);
 </script>
+
+{#snippet chip(category: Category, active: boolean, text: string, showCount: boolean)}
+	<button
+		type="button"
+		class={['chip', active && 'on', 'focus-ring']}
+		aria-pressed={active}
+		onclick={() => onselect(category.slug)}
+	>
+		{text}
+		{#if showCount}<span class="count">{category.count}</span>{/if}
+	</button>
+{/snippet}
 
 {#if categories.length > 0}
 	<div class="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
 		<p class="mb-2 text-sm font-extrabold tracking-tight text-lia-navy" id="category-chips-label">
-			Filtrar por categoria
+			{label}
 		</p>
 		<div class="chips" role="group" aria-labelledby="category-chips-label">
 			<button
@@ -22,20 +60,20 @@
 				aria-pressed={selected === ''}
 				onclick={() => onselect('')}
 			>
-				Todas
+				{allLabel}
 			</button>
 			{#each categories as category (category.slug)}
-				<button
-					type="button"
-					class={['chip', selected === category.slug && 'on', 'focus-ring']}
-					aria-pressed={selected === category.slug}
-					onclick={() => onselect(category.slug)}
-				>
-					{category.label}
-					<span class="count">{category.count}</span>
-				</button>
+				{@render chip(category, path[0]?.slug === category.slug, category.label, true)}
 			{/each}
 		</div>
+		{#each rows as parent, depth (parent.slug)}
+			<div class="chips sub" role="group" aria-label={`Subcategorias de ${parent.label}`}>
+				{@render chip(parent, selected === parent.slug, `Tudo em ${parent.label}`, true)}
+				{#each parent.children ?? [] as child (child.slug)}
+					{@render chip(child, path[depth + 1]?.slug === child.slug, child.label, true)}
+				{/each}
+			</div>
+		{/each}
 	</div>
 {/if}
 
@@ -49,6 +87,9 @@
 	}
 	.chips::-webkit-scrollbar {
 		display: none;
+	}
+	.chips.sub {
+		margin-top: 0.5rem;
 	}
 	@media (min-width: 768px) {
 		.chips {

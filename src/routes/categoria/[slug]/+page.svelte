@@ -6,6 +6,8 @@
 	import SiteFooter from '../../../lib/components/SiteFooter.svelte';
 	import SiteHeader from '../../../lib/components/SiteHeader.svelte';
 	import { PUBLIC_SITE_URL } from '../../../lib/config';
+	import CategoryChips from '../../../lib/components/CategoryChips.svelte';
+	import { categoryChain, isInCategory } from '../../../lib/categories';
 	import { toast } from '../../../lib/toast.svelte';
 	import type { PageData } from './$types';
 
@@ -41,8 +43,19 @@
 	const RECENT_KEY = 'achadinhos-da-lia:recent';
 	const RECENT_LIMIT = 8;
 
+	// svelte-ignore state_referenced_locally
+	let sub = $state(data.initialSub);
+	$effect.pre(() => {
+		sub = data.initialSub;
+	});
+	const subPath = $derived(sub ? categoryChain(sub).slice(1) : []);
+
 	const visibleProducts = $derived(
-		favoritesOnly ? products.filter((product) => favoriteIds.includes(product.id)) : products
+		products.filter(
+			(product) =>
+				(sub === '' || isInCategory(product.categoryPath, sub)) &&
+				(!favoritesOnly || favoriteIds.includes(product.id))
+		)
 	);
 	const recentItems = $derived(
 		recentIds
@@ -97,7 +110,10 @@
 	<title>{category.title}</title>
 	<meta name="description" content={category.description} />
 	<link rel="canonical" href={canonical} />
-	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta
+		name="robots"
+		content={data.empty ? 'noindex, follow' : 'index, follow, max-image-preview:large'}
+	/>
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Achadinhos da Lia" />
 	<meta property="og:locale" content="pt_BR" />
@@ -121,13 +137,41 @@
 					Início
 				</a>
 				<span aria-hidden="true"> / </span>
-				<span aria-current="page">{category.label}</span>
+				{#if subPath.length === 0}
+					<span aria-current="page">{category.label}</span>
+				{:else}
+					<button
+						type="button"
+						class="font-semibold text-lia-navy underline-offset-4 hover:underline"
+						onclick={() => (sub = '')}>{category.label}</button
+					>
+					{#each subPath as node, index (node.id)}
+						<span aria-hidden="true"> / </span>
+						{#if index === subPath.length - 1}
+							<span aria-current="page">{node.name}</span>
+						{:else}
+							<button
+								type="button"
+								class="font-semibold text-lia-navy underline-offset-4 hover:underline"
+								onclick={() => (sub = node.id)}>{node.name}</button
+							>
+						{/if}
+					{/each}
+				{/if}
 			</nav>
 			<h1 class="text-3xl font-black tracking-tight text-lia-navy sm:text-4xl">
 				{category.label}
 			</h1>
 			<p class="mt-3 max-w-3xl text-base leading-7 text-lia-muted">{category.intro}</p>
 		</section>
+
+		<CategoryChips
+			categories={data.subTree}
+			selected={sub}
+			onselect={(id) => (sub = id)}
+			label="Filtrar dentro de {category.label}"
+			allLabel="Tudo"
+		/>
 
 		<CategoryLinks
 			categories={data.relatedCategories}

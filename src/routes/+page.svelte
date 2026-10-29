@@ -10,6 +10,7 @@
 	import { trackCategorySelection } from '../lib/analytics';
 	import { PUBLIC_SITE_URL } from '../lib/config';
 	import { categoryPagesWithProducts } from '../lib/category-pages';
+	import { CATEGORY_BY_ID } from '../lib/categories';
 	import { Filters } from '../lib/filters.svelte';
 	import { pickHighlights, toShowcase } from '../lib/products';
 	import { toast } from '../lib/toast.svelte';
@@ -75,8 +76,9 @@
 	});
 
 	function selectCategory(slug: string) {
+		if (filters.categorySlug === slug) return;
 		filters.categorySlug = slug;
-		const label = categoryPageLinks.find((category) => category.slug === slug)?.label;
+		const label = slug ? CATEGORY_BY_ID.get(slug)?.name : undefined;
 		if (label) trackCategorySelection(label);
 	}
 

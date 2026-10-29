@@ -1,7 +1,7 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { trackProductListClick } from '../analytics';
-	import { money } from '../format';
+	import { priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
 	let { product }: { product: ShowcaseProduct } = $props();
@@ -18,7 +18,7 @@
 	<span class="min-w-0">
 		<span class="pop-tag"><i class="pulse-dot"></i>novo</span>
 		<span class="pop-name">{product.name}</span>
-		<b>{money(product.price)}</b>{#if product.discountPercent}<em>−{product.discountPercent}%</em
+		<b>{priceLabel(product)}</b>{#if product.discountPercent}<em>−{product.discountPercent}%</em
 			>{/if}
 	</span>
 </a>

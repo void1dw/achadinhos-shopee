@@ -1,7 +1,7 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { ExternalLink, Heart } from '@lucide/svelte';
-	import { money } from '../format';
+	import { money, priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
 	type Props = {
@@ -47,10 +47,10 @@
 			<h3>{product.name}</h3>
 			<div class="purchase-row">
 				<div class="price">
-					{#if product.previousPrice && product.previousPrice > product.price}
+					{#if product.discountPercent && product.previousPrice}
 						<s class="previous-price">{money(product.previousPrice)}</s>
 					{/if}
-					<strong class="current-price">{money(product.price)}</strong>
+					<strong class="current-price">{priceLabel(product)}</strong>
 				</div>
 				<span class="cta" aria-hidden="true">
 					Ver na Shopee <ExternalLink size={15} />
