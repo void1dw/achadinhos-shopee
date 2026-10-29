@@ -18,7 +18,9 @@ function sendEvent(eventName: string, parameters: AnalyticsParameters): void {
 function isShopeeLink(url: string): boolean {
 	try {
 		const hostname = new URL(url).hostname.toLowerCase();
-		return hostname === 'shopee.com.br' || hostname.endsWith('.shopee.com.br');
+		return (
+			hostname === 'shopee.com.br' || hostname.endsWith('.shopee.com.br') || hostname === 'shope.ee'
+		);
 	} catch {
 		return false;
 	}

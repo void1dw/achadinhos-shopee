@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ProductGrid from '../../../lib/components/ProductGrid.svelte';
 	import CategoryLinks from '../../../lib/components/CategoryLinks.svelte';
@@ -104,6 +105,17 @@
 		recentIds = [id, ...recentIds.filter((recentId) => recentId !== id)].slice(0, RECENT_LIMIT);
 		persistIds(RECENT_KEY, recentIds, 'Não foi possível salvar seu histórico recente neste navegador.');
 	}
+
+	function selectSubcategory(id: string) {
+		sub = id;
+		const url = new URL(window.location.href);
+		if (id) url.searchParams.set('sub', id);
+		else url.searchParams.delete('sub');
+		void goto(`${url.pathname}${url.search}${url.hash}`, {
+			replace: true,
+			reset: false
+		});
+	}
 </script>
 
 <svelte:head>
@@ -168,7 +180,7 @@
 		<CategoryChips
 			categories={data.subTree}
 			selected={sub}
-			onselect={(id) => (sub = id)}
+			onselect={selectSubcategory}
 			label="Filtrar dentro de {category.label}"
 			allLabel="Tudo"
 		/>

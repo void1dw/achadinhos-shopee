@@ -31,9 +31,9 @@
 <!-- Filtros da vitrine em uma barra fina que gruda no topo ao rolar -->
 <section
 	id="buscar-produto"
-	class="sticky top-0 z-30 border-y border-lia-line bg-white/95 backdrop-blur"
+	class="search-sticky sticky top-0 z-30 border-y border-lia-line bg-white/95 backdrop-blur"
 >
-	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
+	<div class="search-inner mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
 		<div class="relative min-w-0 flex-1">
 			<label for="product-search" class="sr-only">Buscar produtos</label>
 			<Search
@@ -87,9 +87,9 @@
 </section>
 
 <!-- Ordenação e filtros avançados ficam fora da área fixa: rolam junto com a página -->
-<section class="border-b border-lia-line">
-	<div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
-		<span class="shrink-0 text-xs font-semibold text-lia-muted" id="sort-label">Ordenar:</span>
+<section class="sort-section border-b border-lia-line">
+	<div class="sort-inner mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
+		<span class="sort-label shrink-0" id="sort-label">Ordenar por</span>
 		<div class="sort-row" role="group" aria-labelledby="sort-label">
 			{#each SORT_CHIPS as chip (chip.value)}
 				<button
@@ -106,8 +106,13 @@
 
 	<div id="advanced-filters" aria-hidden={!filters.panelOpen} inert={!filters.panelOpen}>
 		{#if filters.panelOpen}
-			<div class="border-t border-lia-line bg-lia-cream" transition:fly={{ y: -8, duration: 180 }}>
-				<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
+			<div
+				class="advanced-panel border-t border-lia-line bg-lia-cream"
+				transition:fly={{ y: -8, duration: 180 }}
+			>
+				<div
+					class="advanced-inner mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6"
+				>
 					<select bind:value={filters.sort} aria-label="Ordenar" class={field}>
 						<option value="recentes">Mais novos</option>
 						<option value="maior-desconto">Maior desconto</option>
@@ -150,6 +155,31 @@
 </section>
 
 <style>
+	.search-sticky {
+		border-color: rgb(13 40 107 / 10%);
+		background: rgb(255 253 248 / 96%);
+		box-shadow: 0 7px 18px rgb(13 40 107 / 7%);
+	}
+	.search-inner {
+		min-height: 4.25rem;
+	}
+	.sort-section {
+		border-color: rgb(13 40 107 / 8%);
+		background: linear-gradient(180deg, #fffdf8, #fff);
+	}
+	.sort-inner {
+		min-height: 3.75rem;
+		flex-wrap: wrap;
+		row-gap: 0.5rem;
+	}
+	.sort-label {
+		margin-right: 0.2rem;
+		color: #a64b18;
+		font-size: 0.67rem;
+		font-weight: 850;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
 	.chip {
 		display: inline-flex;
 		flex: none;
@@ -157,17 +187,18 @@
 		gap: 0.3rem;
 		height: 2.75rem;
 		padding: 0 0.9rem;
-		border: 1px solid var(--lia-line);
+		border: 1px solid #e8e4dc;
 		border-radius: 999px;
-		background: #fff;
-		color: #3a475f;
-		font-size: 0.8125rem;
-		font-weight: 600;
+		background: rgb(255 255 255 / 90%);
+		color: #34425b;
+		font-size: 0.78rem;
+		font-weight: 650;
 		white-space: nowrap;
 		transition:
 			background 150ms,
 			color 150ms,
-			border-color 150ms;
+			border-color 150ms,
+			box-shadow 150ms;
 	}
 	.sort-row {
 		display: flex;
@@ -182,6 +213,7 @@
 		border-color: var(--lia-navy);
 		background: var(--lia-navy);
 		color: #fff;
+		box-shadow: 0 3px 9px rgb(13 40 107 / 16%);
 	}
 	.icon-btn {
 		position: relative;
@@ -218,6 +250,15 @@
 	.filter-btn.on {
 		border-color: var(--lia-orange);
 		color: var(--lia-orange);
+		background: #fff7ed;
+	}
+	.advanced-panel {
+		border-color: rgb(13 40 107 / 9%);
+		background: #f8f6f0;
+	}
+	.advanced-inner {
+		padding-top: 1rem;
+		padding-bottom: 1rem;
 	}
 	.badge {
 		position: absolute;
@@ -232,5 +273,20 @@
 		color: #fff;
 		font-size: 10px;
 		font-weight: 700;
+	}
+	@media (max-width: 639px) {
+		.sort-inner {
+			align-items: flex-start;
+			padding-top: 0.7rem;
+			padding-bottom: 0.75rem;
+		}
+		.sort-label {
+			width: 100%;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.chip {
+			transition: none;
+		}
 	}
 </style>
