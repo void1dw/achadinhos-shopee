@@ -1,6 +1,9 @@
 import type { Product } from '../types';
 import { parsePrice as parseAmount } from '../format';
-import { resolveCategory } from '../categories';
+import { categoryChain, resolveCategory } from '../categories';
+import { classifyByRules, isGenericCategory, TITLE_CONFIRMED_PRIMARIES } from '../category-rules';
+
+const isApproved = (node: { status: string }): boolean => node.status === 'approved';
 
 export type SheetResult<T> = {
 	items: T[];
@@ -25,6 +28,19 @@ export type ProductIssue = {
 	hasValidTwin?: boolean;
 };
 
+export type AutoClassified = {
+	id: string;
+	row: number;
+	name: string;
+	/** Categoria escrita na planilha. */
+	category: string;
+	categoryId: string;
+	pathNames: string[];
+	rule: string;
+	/** Por que a categoria da planilha não bastou. */
+	origin: 'generic' | 'unknown' | 'pending' | 'confirmation';
+};
+
 export type ParseOutcome = {
 	items: Product[];
 	issues: ProductIssue[];
@@ -35,7 +51,11 @@ export type ParseOutcome = {
 		warnings: number;
 		emptyPreviousPrice: number;
 		duplicateRows: number;
+		autoClassified: number;
+		viaSheet: number;
 	};
+	/** Produtos aceitos por regra de título (só as linhas vencedoras). */
+	autoClassified: AutoClassified[];
 	/** Categoria da planilha que não foi classificada -> quantidade de linhas. */
 	unclassified: Map<string, number>;
 };
@@ -245,7 +265,13 @@ export function parseProducts(text: string): ParseOutcome {
 		});
 	}
 
-	type Candidate = { product: Product; depth: number; row: number; issueStart: number };
+	type Candidate = {
+		product: Product;
+		depth: number;
+		row: number;
+		issueStart: number;
+		origin?: AutoClassified['origin'];
+	};
 	const candidates = new Map<string, Candidate[]>();
 	const rejectedById = new Map<string, number[]>();
 
@@ -295,21 +321,55 @@ export function parseProducts(text: string): ParseOutcome {
 		}
 
 		let resolvedDepth = 0;
+		let categoryId: string | undefined;
+		let autoRule: string | undefined;
+		let origin: AutoClassified['origin'] | undefined;
 		if (!category) {
 			add('reject', 'category', 'categoria', 'CATEGORIA VAZIA');
 		} else {
 			const resolution = resolveCategory(category);
-			if (resolution.status === 'ok') {
+			const needsTitle =
+				resolution.status !== 'ambiguous' &&
+				resolution.status !== 'unknown' &&
+				resolution.path.length === 1 &&
+				TITLE_CONFIRMED_PRIMARIES.includes(resolution.category.id);
+			if (resolution.status === 'ok' && !needsTitle) {
 				resolvedDepth = resolution.path.length;
 			} else {
-				const reason =
-					resolution.status === 'pending'
-						? 'CATEGORIA AGUARDANDO APROVAÇÃO'
-						: resolution.status === 'ambiguous'
-							? 'CATEGORIA AMBÍGUA (USE O CAMINHO COMPLETO, EX.: MODA FEMININA > CALÇAS)'
-							: 'CATEGORIA DESCONHECIDA';
-				add('reject', 'category', 'categoria', `${reason}: "${category}"`);
-				unclassified.set(category, (unclassified.get(category) ?? 0) + 1);
+				const eligible = resolution.status !== 'ambiguous';
+				const hint = 'path' in resolution ? resolution.path[0]?.id : undefined;
+				const result = eligible ? classifyByRules(name, { categoryHint: hint }) : undefined;
+				const chain = result?.status === 'matched' ? categoryChain(result.categoryId) : [];
+				if (result?.status === 'matched' && chain.length > 0 && chain.every(isApproved)) {
+					categoryId = result.categoryId;
+					autoRule = result.ruleId;
+					resolvedDepth = chain.length;
+					origin = needsTitle
+						? 'confirmation'
+						: resolution.status === 'pending'
+							? 'pending'
+							: isGenericCategory(category)
+								? 'generic'
+								: 'unknown';
+				} else {
+					const reason = needsTitle
+						? 'CATEGORIA EXIGE CONFIRMAÇÃO PELO TÍTULO'
+						: resolution.status === 'pending'
+							? 'CATEGORIA AGUARDANDO APROVAÇÃO'
+							: resolution.status === 'ambiguous'
+								? 'CATEGORIA AMBÍGUA (USE O CAMINHO COMPLETO, EX.: MODA FEMININA > CALÇAS)'
+								: isGenericCategory(category)
+									? 'CATEGORIA GENÉRICA'
+									: 'CATEGORIA DESCONHECIDA';
+					const detail =
+						result?.status === 'ambiguous'
+							? ` | TÍTULO AMBÍGUO ENTRE AS REGRAS ${result.ruleIds.join(', ')} (REVISÃO MANUAL)`
+							: eligible
+								? ' | NENHUMA REGRA DE TÍTULO COM CORRESPONDÊNCIA CLARA (REVISÃO MANUAL)'
+								: '';
+					add('reject', 'category', 'categoria', `${reason}: "${category}"${detail}`);
+					unclassified.set(category, (unclassified.get(category) ?? 0) + 1);
+				}
 			}
 		}
 
@@ -342,21 +402,22 @@ export function parseProducts(text: string): ParseOutcome {
 			...(previous ? { previousPrice: previous.min } : {}),
 			...(previous?.max !== undefined ? { previousPriceMax: previous.max } : {}),
 			category,
+			...(categoryId ? { categoryId, autoRule } : {}),
 			image,
 			url,
 			...(publishedAt ? { publishedAt } : {})
 		};
 		const list = candidates.get(id) ?? [];
-		list.push({ product, depth: resolvedDepth, row, issueStart });
+		list.push({ product, depth: resolvedDepth, row, issueStart, origin });
 		candidates.set(id, list);
 	}
 
 	// Um produto por ID: a categoria mais específica vence; as demais linhas viram aviso.
-	const winners: Array<{ row: number; product: Product }> = [];
+	const winners: Array<{ row: number; product: Product; origin?: AutoClassified['origin'] }> = [];
 	let duplicateRows = 0;
 	for (const [id, list] of candidates) {
 		const winner = list.reduce((best, item) => (item.depth > best.depth ? item : best));
-		winners.push({ row: winner.row, product: winner.product });
+		winners.push({ row: winner.row, product: winner.product, origin: winner.origin });
 		for (const item of list) {
 			if (item === winner) continue;
 			duplicateRows += 1;
@@ -377,19 +438,36 @@ export function parseProducts(text: string): ParseOutcome {
 	}
 	winners.sort((a, b) => a.row - b.row);
 	const items = winners.map((winner) => winner.product);
+	const autoClassified: AutoClassified[] = winners.flatMap((winner) => {
+		const { product, origin } = winner;
+		if (!product.categoryId || !product.autoRule || !origin) return [];
+		return {
+			id: product.id,
+			row: winner.row,
+			name: product.name,
+			category: product.category,
+			categoryId: product.categoryId,
+			pathNames: categoryChain(product.categoryId).map((node) => node.name),
+			rule: product.autoRule,
+			origin
+		};
+	});
 
 	const rejectedIds = [...rejectedById.keys()].filter((id) => !candidates.has(id));
 	return {
 		items,
 		issues,
 		unclassified,
+		autoClassified,
 		counts: {
 			rows: rows.length,
 			valid: items.length,
 			rejected: rejectedIds.length,
 			warnings: issues.filter((issue) => issue.kind === 'warn').length,
 			emptyPreviousPrice,
-			duplicateRows
+			duplicateRows,
+			autoClassified: autoClassified.length,
+			viaSheet: items.length - autoClassified.length
 		}
 	};
 }

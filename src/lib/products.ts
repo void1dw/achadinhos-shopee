@@ -1,4 +1,4 @@
-import { resolveCategory } from './categories';
+import { categoryChain, resolveCategory } from './categories';
 import { normalizeText } from './format';
 import type { Product, ShowcaseProduct } from './types';
 
@@ -20,9 +20,15 @@ export function discountPercent(product: Product): number | null {
  */
 export function toShowcase(products: Product[]): ShowcaseProduct[] {
 	return products.flatMap((product) => {
-		const resolution = resolveCategory(product.category);
-		if (resolution.status !== 'ok') return [];
-		const { category, path } = resolution;
+		// Classificado por regra de título: o texto original da planilha não resolve sozinho.
+		const path = product.categoryId
+			? categoryChain(product.categoryId)
+			: (() => {
+					const resolution = resolveCategory(product.category);
+					return resolution.status === 'ok' ? resolution.path : [];
+				})();
+		if (path.length === 0 || !path.every((node) => node.status === 'approved')) return [];
+		const category = path[path.length - 1];
 		const names = path.map((node) => node.name).join(' ');
 
 		return {

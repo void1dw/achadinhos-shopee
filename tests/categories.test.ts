@@ -79,8 +79,13 @@ test('nome repetido em dois pais é ambíguo, mas o caminho completo resolve', (
 	assert.equal(full.status === 'ok' && full.category.id, 'moda-masculina-calcas');
 });
 
-test('categoria pendente (alimentos) é reconhecida mas não aprovada', () => {
-	assert.equal(resolveCategory('Alimentos e Bebidas').status, 'pending');
+test('alimentos é primária aprovada, mas sem página própria', () => {
+	const resolution = resolveCategory('Alimentos e Bebidas');
+	assert.equal(resolution.status, 'ok');
+	assert.equal(
+		resolveCategory('Bebidas').status === 'ok' && resolveCategory('Bebidas').path.length,
+		2
+	);
 });
 
 test('filtro hierárquico: a primária inclui todos os descendentes', () => {

@@ -11,6 +11,10 @@ export type Product = {
 	previousPriceMax?: number;
 	/** Categoria como veio da planilha (a classificação fica em ShowcaseProduct). */
 	category: string;
+	/** Categoria definida por regra de título (id na taxonomia); ausente = pela planilha. */
+	categoryId?: string;
+	/** Regra que justificou `categoryId`, para auditoria. */
+	autoRule?: string;
 	image: string;
 	url: string;
 	publishedAt?: string;

@@ -515,15 +515,26 @@ const DEFINITIONS: CategoryDef[] = [
 		['conforto', 'Travesseiros e conforto']
 	]),
 
-	// ── Aguardando aprovação ─────────────────────────────────────────────────────
-	// Alimentos e bebidas dependem de decisão sobre as políticas do catálogo. Enquanto estiver
-	// 'pending', os produtos dessa categoria ficam fora da vitrine e aparecem no relatório.
-	primary(
-		'alimentos',
-		'Alimentos e bebidas',
-		['Alimentos', 'Bebidas', 'Comidas', 'Mercado', 'Groceries', 'Food & Beverages'],
-		'pending'
-	)
+	// ── Alimentos e bebidas ──────────────────────────────────────────────────────
+	// Aprovada, mas sem página própria (sem SEO em PAGE_SEO) e sem suplementos, que são regulados.
+	// A categoria "Alimentos e Bebidas" da planilha mistura itens não alimentícios; por isso o
+	// produto só entra aqui quando uma regra de título confirma (ver TITLE_CONFIRMED_PRIMARIES).
+	primary('alimentos', 'Alimentos e bebidas', [
+		'Alimentos',
+		'Comidas',
+		'Mercado',
+		'Groceries',
+		'Food & Beverages'
+	]),
+	...branch('alimentos', [
+		['mercearia', 'Mercearia', ['Mercearia e Despensa']],
+		['cafe-chas', 'Café, chás e infusões', ['Café e Chás']],
+		['doces-snacks', 'Doces e snacks', ['Doces', 'Snacks']],
+		['bebidas', 'Bebidas']
+	]),
+	...branch('alimentos-mercearia', [
+		['pastas-de-untar', 'Pastas e cremes de untar', ['Pastas de Amendoim']]
+	])
 ];
 
 // ── Registro derivado ──────────────────────────────────────────────────────────

@@ -2,6 +2,13 @@ import type { ParseOutcome, ProductIssue } from './sheets';
 
 const MAX_TEXT = 80;
 
+const ORIGIN_LABEL = {
+	generic: 'genérica',
+	unknown: 'não reconhecida',
+	pending: 'aguardando aprovação',
+	confirmation: 'ampla, confirmada pelo título'
+} as const;
+
 function clean(value: string, max = MAX_TEXT): string {
 	const text = value.replace(/\s+/g, ' ').trim();
 	return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -55,6 +62,8 @@ export function formatProductReport(
 		`Linhas lidas: ${counts.rows}`,
 		`Produtos válidos na vitrine: ${counts.valid}`,
 		`Produtos rejeitados (fora da vitrine): ${counts.rejected}`,
+		`Classificados pela categoria da planilha: ${counts.viaSheet}`,
+		`Classificados automaticamente por regra: ${counts.autoClassified}`,
 		`Linhas duplicadas ignoradas: ${counts.duplicateRows}`,
 		`Avisos (não bloqueiam): ${counts.warnings}`,
 		`Produtos sem preço original (sem desconto, aceitos): ${counts.emptyPreviousPrice}`,
@@ -74,6 +83,25 @@ export function formatProductReport(
 			out.push(`${clean(name)}: ${count} linha(s)`);
 		}
 		out.push('');
+	}
+
+	out.push(
+		'='.repeat(60),
+		'CLASSIFICADOS AUTOMATICAMENTE POR REGRA (CONFIRA SE ESTÃO CORRETOS)',
+		'='.repeat(60),
+		''
+	);
+	if (outcome.autoClassified.length === 0) out.push('Nenhum.', '');
+	for (const item of outcome.autoClassified) {
+		out.push(
+			`ID: ${clean(item.id, 120)}`,
+			`LINHA: ${item.row}`,
+			`NOME: ${clean(item.name) || '(SEM NOME)'}`,
+			`CATEGORIA ORIGINAL: "${clean(item.category)}" (${ORIGIN_LABEL[item.origin]})`,
+			`CLASSIFICADO EM: ${item.pathNames.join(' > ')}`,
+			`REGRA: ${item.rule}`,
+			''
+		);
 	}
 
 	if (options.details || warned.length <= 200) {
