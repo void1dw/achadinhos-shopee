@@ -18,18 +18,31 @@
 				var isAdmin = function (pathname) {
 					return pathname === '/admin' || pathname.indexOf('/admin/') === 0;
 				};
+				// Não chamamos gtag('config') ao sair do admin: o GA4 já foi configurado no carregamento
+				// e o gtag.js emite o page_view das mudanças de histórico. Reconfigurar duplicaria o page_view.
 				var sync = function (url) {
+					var path;
 					try {
-						window[flag] = isAdmin(new URL(url || location.href, location.href).pathname);
+						path = url ? new URL(url, location.href).pathname : location.pathname;
 					} catch (e) {
-						window[flag] = isAdmin(location.pathname);
+						path = location.pathname;
+					}
+					if (isAdmin(path)) {
+						window[flag] = true;
+					} else {
+						try {
+							delete window[flag];
+						} catch (e) {
+							window[flag] = false;
+						}
 					}
 				};
 				['pushState', 'replaceState'].forEach(function (method) {
 					var original = history[method];
 					history[method] = function (state, title, url) {
+						var result = original.apply(this, arguments);
 						sync(url);
-						return original.apply(this, arguments);
+						return result;
 					};
 				});
 				window.addEventListener('popstate', function () {

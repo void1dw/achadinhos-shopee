@@ -1,7 +1,7 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { Plus } from '@lucide/svelte';
-	import { trackProductListClick } from '../analytics';
+	import { isCountableProductClick, trackProductListClick } from '../analytics';
 	import { priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 	import ProductCard from './ProductCard.svelte';
@@ -56,6 +56,12 @@
 		return PAGE_SIZE;
 	});
 	const shownCount = $derived(Math.min(visible, items.length));
+
+	const handleRecentClick = (product: ShowcaseProduct) => (event: MouseEvent) => {
+		if (!isCountableProductClick(event)) return;
+		onview(product.id);
+		trackProductListClick(product, 'recent_products', 'Produtos vistos recentemente');
+	};
 </script>
 
 <section id="produtos" class="mx-auto max-w-7xl px-4 py-5 sm:px-6">
@@ -145,10 +151,8 @@
 								href={product.url}
 								target="_blank"
 								rel="noopener noreferrer sponsored"
-								onclick={() => {
-									onview(product.id);
-									trackProductListClick(product, 'recent_products', 'Produtos vistos recentemente');
-								}}
+								onclick={handleRecentClick(product)}
+								onauxclick={handleRecentClick(product)}
 							>
 								<img src={product.image} alt="" width="52" height="52" loading="lazy" />
 								<span class="recent-text">

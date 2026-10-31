@@ -9,6 +9,7 @@
 	import { PUBLIC_SITE_URL } from '../../../lib/config';
 	import CategoryChips from '../../../lib/components/CategoryChips.svelte';
 	import { categoryChain, isInCategory } from '../../../lib/categories';
+	import { jsonLdScript } from '../../../lib/json-ld';
 	import { toast } from '../../../lib/toast.svelte';
 	import type { PageData } from './$types';
 
@@ -16,26 +17,24 @@
 	const category = $derived(data.category);
 	const products = $derived(data.items);
 	const canonical = $derived(new URL(`/categoria/${category.slug}`, PUBLIC_SITE_URL).toString());
-	const structuredData = $derived(
-		JSON.stringify({
-			'@context': 'https://schema.org',
-			'@type': 'BreadcrumbList',
-			itemListElement: [
-				{
-					'@type': 'ListItem',
-					position: 1,
-					name: 'Início',
-					item: PUBLIC_SITE_URL
-				},
-				{
-					'@type': 'ListItem',
-					position: 2,
-					name: category.label,
-					item: canonical
-				}
-			]
-		}).replace(/</g, '\\u003c')
-	);
+	const structuredData = $derived({
+		'@context': 'https://schema.org',
+		'@type': 'BreadcrumbList',
+		itemListElement: [
+			{
+				'@type': 'ListItem',
+				position: 1,
+				name: 'Início',
+				item: PUBLIC_SITE_URL
+			},
+			{
+				'@type': 'ListItem',
+				position: 2,
+				name: category.label,
+				item: canonical
+			}
+		]
+	});
 
 	let favoriteIds = $state<string[]>([]);
 	let recentIds = $state<string[]>([]);
@@ -44,11 +43,7 @@
 	const RECENT_KEY = 'achadinhos-da-lia:recent';
 	const RECENT_LIMIT = 8;
 
-	// svelte-ignore state_referenced_locally
-	let sub = $state(data.initialSub);
-	$effect.pre(() => {
-		sub = data.initialSub;
-	});
+	let sub = $derived(data.initialSub);
 	const subPath = $derived(sub ? categoryChain(sub).slice(1) : []);
 
 	const visibleProducts = $derived(
@@ -98,12 +93,20 @@
 		favoriteIds = favoriteIds.includes(id)
 			? favoriteIds.filter((favoriteId) => favoriteId !== id)
 			: [id, ...favoriteIds];
-		persistIds(FAVORITES_KEY, favoriteIds, 'Não foi possível salvar seus favoritos neste navegador.');
+		persistIds(
+			FAVORITES_KEY,
+			favoriteIds,
+			'Não foi possível salvar seus favoritos neste navegador.'
+		);
 	}
 
 	function recordViewed(id: string) {
 		recentIds = [id, ...recentIds.filter((recentId) => recentId !== id)].slice(0, RECENT_LIMIT);
-		persistIds(RECENT_KEY, recentIds, 'Não foi possível salvar seu histórico recente neste navegador.');
+		persistIds(
+			RECENT_KEY,
+			recentIds,
+			'Não foi possível salvar seu histórico recente neste navegador.'
+		);
 	}
 
 	function selectSubcategory(id: string) {
@@ -112,7 +115,8 @@
 		if (id) url.searchParams.set('sub', id);
 		else url.searchParams.delete('sub');
 		// shallow: só atualiza a URL; o filtro já foi aplicado no navegador, sem nova carga do servidor.
-		void goto(`${url.pathname}${url.search}${url.hash}`, {
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- O caminho vem de resolve(); só a query/hash são anexados.
+		void goto(`${resolve('/categoria/[slug]', { slug: category.slug })}${url.search}${url.hash}`, {
 			replace: true,
 			shallow: true
 		});
@@ -133,7 +137,13 @@
 	<meta property="og:title" content={category.title} />
 	<meta property="og:description" content={category.description} />
 	<meta property="og:url" content={canonical} />
-	{@html `<script type="application/ld+json">${structuredData}</script>`}
+	<meta property="og:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={category.title} />
+	<meta name="twitter:description" content={category.description} />
+	<meta name="twitter:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON-LD gerado por jsonLdScript, que escapa "<". -->
+	{@html jsonLdScript(structuredData)}
 </svelte:head>
 
 <div class="min-h-screen font-sans antialiased">
@@ -144,9 +154,12 @@
 	/>
 
 	<main>
-		<section class="mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6">
+		<section class="mx-auto max-w-7xl px-4 pt-8 pb-2 sm:px-6">
 			<nav aria-label="Breadcrumb" class="mb-4 text-sm text-lia-muted">
-				<a class="font-semibold text-lia-navy underline-offset-4 hover:underline" href={resolve('/')}>
+				<a
+					class="font-semibold text-lia-navy underline-offset-4 hover:underline"
+					href={resolve('/')}
+				>
 					Início
 				</a>
 				<span aria-hidden="true"> / </span>

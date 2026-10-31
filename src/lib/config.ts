@@ -1,5 +1,5 @@
-/** URL pública provisória; substituir pelo domínio próprio quando estiver disponível. */
-export const PUBLIC_SITE_URL = 'https://achadinholia.brunomarinhomattoss2.workers.dev/';
+/** URL pública oficial do site. */
+export const PUBLIC_SITE_URL = 'https://achadinhoslia.com.br/';
 
 /** Link da aba Produtos publicada como CSV no Google Sheets. */
 export const SHEET_PRODUCTS_CSV_URL =

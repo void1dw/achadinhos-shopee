@@ -39,7 +39,7 @@ Send the dashboard token in the `Authorization` header from a trusted terminal o
 ```sh
 curl --fail-with-body \
   -H "Authorization: Bearer $GA4_DASHBOARD_TOKEN" \
-  "https://achadinholia.brunomarinhomattoss2.workers.dev/api/analytics/report?startDate=2026-10-01&endDate=2026-10-26"
+  "https://achadinhoslia.com.br/api/analytics/report?startDate=2026-10-01&endDate=2026-10-26"
 ```
 
 The endpoint is uncached and makes eight read-only Data API reports per request. It returns `401` for a missing/invalid token, `400` for an invalid date range, `503` when credentials are not configured, and `502` when Google OAuth or the Data API fails.

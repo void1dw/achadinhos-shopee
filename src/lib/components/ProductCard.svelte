@@ -1,6 +1,7 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
 	import { ExternalLink, Heart } from '@lucide/svelte';
+	import { isCountableProductClick } from '../analytics';
 	import { money, priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
@@ -15,6 +16,12 @@
 		onproductclick: (product: ShowcaseProduct) => void;
 	};
 	let { product, index, isNew, isFavorite, onfavorite, onview, onproductclick }: Props = $props();
+
+	function handleProductClick(event: MouseEvent) {
+		if (!isCountableProductClick(event)) return;
+		onview(product.id);
+		onproductclick(product);
+	}
 </script>
 
 <article class="card" style="--i:{index % 10}">
@@ -24,10 +31,8 @@
 		rel="noopener noreferrer sponsored"
 		class="product-link focus-ring"
 		aria-label="{product.name}, ver na Shopee"
-		onclick={() => {
-			onview(product.id);
-			onproductclick(product);
-		}}
+		onclick={handleProductClick}
+		onauxclick={handleProductClick}
 	>
 		<div class="thumb">
 			<img

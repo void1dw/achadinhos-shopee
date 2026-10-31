@@ -11,6 +11,7 @@
 	import { PUBLIC_SITE_URL } from '../lib/config';
 	import { categoryPagesWithProducts } from '../lib/category-pages';
 	import { CATEGORY_BY_ID } from '../lib/categories';
+	import { jsonLdScript } from '../lib/json-ld';
 	import { Filters } from '../lib/filters.svelte';
 	import { pickHighlights, toShowcase } from '../lib/products';
 	import { toast } from '../lib/toast.svelte';
@@ -22,13 +23,13 @@
 	const highlights = $derived(pickHighlights(products));
 	const highlightIds = $derived(new Set(highlights.map((p) => p.id)));
 	const categoryPageLinks = $derived(categoryPagesWithProducts(products));
-	const structuredData = JSON.stringify({
+	const structuredData = {
 		'@context': 'https://schema.org',
 		'@type': 'WebSite',
 		name: 'Achadinhos da Lia',
 		url: PUBLIC_SITE_URL,
 		inLanguage: 'pt-BR'
-	}).replace(/</g, '\\u003c');
+	};
 
 	const filters = new Filters();
 	let favoriteIds = $state<string[]>([]);
@@ -117,13 +118,16 @@
 		property="og:description"
 		content="Ofertas da Shopee selecionadas pela Lia. Compare preços, salve seus achados favoritos e confira cupons antes de comprar."
 	/>
+	<meta property="og:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content="Achadinhos da Lia | Ofertas da Shopee e cupons" />
 	<meta
 		name="twitter:description"
 		content="Ofertas da Shopee selecionadas pela Lia. Confira preços e cupons antes de comprar."
 	/>
-	{@html `<script type="application/ld+json">${structuredData}</script>`}
+	<meta name="twitter:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON-LD gerado por jsonLdScript, que escapa "<". -->
+	{@html jsonLdScript(structuredData)}
 </svelte:head>
 
 <div class="min-h-screen font-sans antialiased">

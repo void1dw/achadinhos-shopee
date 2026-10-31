@@ -1,6 +1,6 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Links de ofertas apontam para URLs externas da Shopee. */
-	import { trackProductListClick } from '../analytics';
+	import { handleProductAffiliateClick } from '../analytics';
 	import { priceLabel } from '../format';
 	import type { ShowcaseProduct } from '../types';
 
@@ -15,7 +15,10 @@
 				target="_blank"
 				rel="noopener noreferrer sponsored"
 				class="feed-row focus-ring"
-				onclick={() => trackProductListClick(p, 'featured_products', 'Produtos em destaque')}
+				onclick={(e) =>
+					handleProductAffiliateClick(e, p, 'featured_products', 'Produtos em destaque')}
+				onauxclick={(e) =>
+					handleProductAffiliateClick(e, p, 'featured_products', 'Produtos em destaque')}
 			>
 				<img
 					src={p.image}
