@@ -29,6 +29,7 @@ test('hook: www redireciona 301 para o domínio raiz preservando caminho e query
 		response.headers.get('location'),
 		'https://achadinhoslia.com.br/categoria/casa?sub=cozinha&utm_source=ig'
 	);
+	assert.equal(response.headers.get('cache-control'), 'no-store');
 	assert.equal(resolved, false);
 });
 

@@ -7,7 +7,13 @@ function isAdminPath(pathname: string): boolean {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const target = wwwRedirectTarget(event.url, event.request.method);
-	if (target) return new Response(null, { status: 301, headers: { location: target } });
+	// O cache do Workers não inclui o host na chave; um 301 guardado para "/" seria servido também na raiz.
+	if (target) {
+		return new Response(null, {
+			status: 301,
+			headers: { location: target, 'cache-control': 'no-store' }
+		});
+	}
 
 	const response = await resolve(event);
 	if (isAdminPath(event.url.pathname)) {
