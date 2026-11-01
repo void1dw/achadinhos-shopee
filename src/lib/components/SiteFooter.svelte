@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { ArrowUp, Eye, ShieldCheck, ShoppingBag, Sparkles } from '@lucide/svelte';
+	import { ArrowUp, Cloud, Eye, ShieldCheck, ShoppingBag, Sparkles } from '@lucide/svelte';
 	import { onMount } from 'svelte';
-	import { GOOGLE_INDEXING_CONFIRMED, googleSiteSearchUrl, isSecureConnection } from '../trust';
+	import { isSecureConnection } from '../trust';
 
 	// Decidido no navegador: o servidor atrás da Cloudflare não sabe se o visitante usou HTTPS.
 	let secure = $state(false);
@@ -38,40 +38,18 @@
 					<span class="trust-icon"><ShoppingBag size={16} aria-hidden="true" /></span>
 					<span>Você compra diretamente na Shopee.</span>
 				</li>
-				<li class="trust-item wide">
+				<li class="trust-item">
 					<span class="trust-icon"><Eye size={16} aria-hidden="true" /></span>
 					<span>
 						Links de afiliados: podemos receber comissão pelas compras realizadas, sem custo
 						adicional para você.
 					</span>
 				</li>
-				{#if GOOGLE_INDEXING_CONFIRMED}
-					<li class="trust-item">
-						<span>
-							<!-- eslint-disable svelte/no-navigation-without-resolve -- URL externa -->
-							<a
-								class="trust-link focus-ring"
-								href={googleSiteSearchUrl()}
-								target="_blank"
-								rel="noopener noreferrer"
-							>
-								Encontre a Achadinhos da Lia na Pesquisa Google.
-							</a>
-						</span>
-					</li>
-				{/if}
+				<li class="trust-item">
+					<span class="trust-icon"><Cloud size={16} aria-hidden="true" /></span>
+					<span>Usamos serviços da Cloudflare</span>
+				</li>
 			</ul>
-			<div class="cloudflare">
-				<img
-					src="/cloudflare-badge.png"
-					alt="Protected by Cloudflare"
-					width="761"
-					height="264"
-					loading="lazy"
-					decoding="async"
-				/>
-				<span>Este site utiliza serviços da Cloudflare.</span>
-			</div>
 		</section>
 
 		<div class="footer-bottom">
@@ -220,18 +198,18 @@
 	}
 	.trust {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
 		align-items: center;
-		justify-content: space-between;
-		gap: 1rem 1.5rem;
-		padding: 1.1rem 0;
+		gap: 1rem;
+		padding: 1.25rem 0;
 		border-bottom: 1px solid #eee7dc;
 	}
 	.trust-list {
 		display: flex;
-		flex: 1 1 28rem;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		align-items: stretch;
+		justify-content: center;
+		gap: 0.6rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -239,50 +217,25 @@
 	.trust-item {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.45rem 0.75rem;
+		gap: 0.55rem;
+		padding: 0.4rem 0.8rem 0.4rem 0.45rem;
 		border: 1px solid rgb(13 40 107 / 10%);
-		border-radius: 0.75rem;
+		border-radius: 999px;
 		background: #f6f2e7;
 		color: #46536a;
 		font-size: 0.72rem;
-		line-height: 1.45;
-	}
-	.trust-item.wide {
-		flex: 1 1 100%;
+		line-height: 1.35;
 	}
 	.trust-icon {
 		display: inline-flex;
 		flex: none;
 		align-items: center;
 		justify-content: center;
-		width: 1.6rem;
-		height: 1.6rem;
-		border-radius: 0.5rem;
+		width: 1.55rem;
+		height: 1.55rem;
+		border-radius: 50%;
 		background: #e4eaf8;
 		color: var(--lia-navy);
-	}
-	.trust-link {
-		color: var(--lia-navy);
-		font-weight: 600;
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
-	.trust-link:hover {
-		color: var(--lia-orange);
-	}
-	.cloudflare {
-		display: flex;
-		flex: none;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.35rem;
-		color: #777d87;
-		font-size: 0.66rem;
-	}
-	.cloudflare img {
-		width: 116px;
-		height: auto;
 	}
 	.footer-bottom {
 		flex-wrap: wrap;

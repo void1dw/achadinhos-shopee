@@ -26,26 +26,21 @@ test('a pesquisa no Google usa o operador site: com o domínio público', () => 
 	assert.equal(new URL(googleSiteSearchUrl()).searchParams.get('q'), 'site:achadinhoslia.com.br');
 });
 
-test('a menção ao Google está ativa e condicionada à flag de indexação', () => {
+test('o selo de HTTPS é condicionado à conexão e o rodapé não exibe a Pesquisa Google', () => {
 	assert.equal(GOOGLE_INDEXING_CONFIRMED, true);
-	assert.match(footer, /\{#if GOOGLE_INDEXING_CONFIRMED\}/);
 	assert.match(footer, /\{#if secure\}/);
+	assert.doesNotMatch(footer, /Pesquisa Google|googleSiteSearchUrl/);
 });
 
 test('o rodapé traz os textos de confiança exigidos e nenhuma marca indevida', () => {
 	assert.match(footer, /Conexão protegida por HTTPS/);
 	assert.match(footer, /Você compra diretamente na Shopee\./);
 	assert.match(footer, /podemos receber comissão pelas compras realizadas, sem custo/);
-	assert.match(footer, /Este site utiliza serviços da Cloudflare\./);
-	assert.match(footer, /Encontre a Achadinhos da Lia na Pesquisa Google\./);
 	assert.doesNotMatch(footer, /mercado\s*livre/i);
 	assert.doesNotMatch(footer, /certificad|aprovad[oa] pel/i);
 });
 
-test('o badge da Cloudflare é o arquivo oficial, sem redimensionar a proporção', () => {
-	const png = readFileSync(new URL('../static/cloudflare-badge.png', import.meta.url));
-	assert.equal(png.subarray(1, 4).toString('ascii'), 'PNG');
-	const [width, height] = [png.readUInt32BE(16), png.readUInt32BE(20)];
-	assert.deepEqual([width, height], [761, 264]);
-	assert.match(footer, /width="761"\s+height="264"/);
+test('o rodapé cita a Cloudflare em texto, sem imitar o logotipo', () => {
+	assert.match(footer, /serviços da Cloudflare/);
+	assert.doesNotMatch(footer, /cloudflare-badge/);
 });
