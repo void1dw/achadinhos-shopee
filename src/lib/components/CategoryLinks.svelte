@@ -12,9 +12,7 @@
 		exclude?: string;
 	} = $props();
 
-	const visibleCategories = $derived(
-		categories.filter((category) => category.slug !== exclude)
-	);
+	const visibleCategories = $derived(categories.filter((category) => category.slug !== exclude));
 </script>
 
 {#if visibleCategories.length > 0}
@@ -26,10 +24,12 @@
 					<a
 						href={resolve('/categoria/[slug]', { slug: category.slug })}
 						onclick={() => trackCategorySelection(category.label)}
-						class="inline-flex min-h-10 items-center gap-2 rounded-full border border-lia-line bg-white px-4 py-2 text-sm font-semibold text-lia-navy transition hover:border-lia-orange hover:text-lia-orange focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lia-orange"
+						class="category-link inline-flex min-h-10 items-center gap-2 rounded-full border border-lia-line bg-[#f2eee2] px-4 py-2 text-sm font-semibold text-lia-navy transition duration-150 hover:-translate-y-0.5 hover:border-lia-orange hover:bg-white hover:text-lia-orange hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lia-orange motion-reduce:transition-none motion-reduce:hover:translate-y-0"
 					>
 						{category.label}
-						<span class="text-xs font-medium text-lia-muted">{category.count}</span>
+						<span class="rounded-full bg-white px-1.5 text-xs font-semibold text-lia-muted"
+							>{category.count}</span
+						>
 					</a>
 				</li>
 			{/each}

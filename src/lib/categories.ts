@@ -585,9 +585,28 @@ export function childrenOf(id: string): CategoryNode[] {
 	return CATEGORIES.filter((node) => node.parentId === id);
 }
 
-/** O produto pertence à categoria `id` diretamente ou por uma de suas descendentes. */
+/**
+ * Grupos que pertencem a dois lugares da navegação. Calçados e bolsas são organizados por tipo
+ * (Moda > Calçados > Calçados femininos), mas quem entra em "Moda feminina" espera encontrá-los
+ * ali também. O produto continua com um único caminho; esta tabela só amplia a pertinência.
+ */
+export const ALSO_LISTED_IN: Readonly<Record<string, readonly string[]>> = {
+	'moda-calcados-femininos': ['moda-feminina'],
+	'moda-bolsas-femininas': ['moda-feminina'],
+	'moda-calcados-masculinos': ['moda-masculina'],
+	'moda-bolsas-masculinas': ['moda-masculina'],
+	'moda-calcados-infantis': ['moda-infantil'],
+	'moda-infantil-bebe': ['bebes']
+};
+
+/** Grupos exibidos também dentro de `parentId`, além dos seus filhos diretos. */
+export function alsoListedChildrenOf(parentId: string): CategoryNode[] {
+	return CATEGORIES.filter((node) => ALSO_LISTED_IN[node.id]?.includes(parentId));
+}
+
+/** O produto pertence à categoria `id` diretamente, por uma descendente ou por listagem dupla. */
 export function isInCategory(categoryPath: readonly string[], id: string): boolean {
-	return categoryPath.includes(id);
+	return categoryPath.some((node) => node === id || ALSO_LISTED_IN[node]?.includes(id) === true);
 }
 
 // ── Resolução de nomes da planilha ─────────────────────────────────────────────

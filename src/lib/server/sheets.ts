@@ -337,6 +337,7 @@ export function parseProducts(text: string): ParseOutcome {
 				resolvedDepth = resolution.path.length;
 				const refined = classifyByRules(name, {
 					categoryHint: resolution.path[0].id,
+					categoryId: resolution.category.id,
 					refine: true
 				});
 				const chain = refined.status === 'matched' ? categoryChain(refined.categoryId) : [];

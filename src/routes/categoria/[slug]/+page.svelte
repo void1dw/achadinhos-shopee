@@ -197,6 +197,8 @@
 			onselect={selectSubcategory}
 			label="Filtrar dentro de {category.label}"
 			allLabel="Tudo"
+			variant="chips"
+			department={category.slug}
 		/>
 
 		<CategoryLinks

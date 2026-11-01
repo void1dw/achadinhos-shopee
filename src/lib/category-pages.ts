@@ -1,4 +1,10 @@
-import { CATEGORY_BY_ID, childrenOf, isInCategory } from './categories';
+import {
+	ALSO_LISTED_IN,
+	CATEGORY_BY_ID,
+	alsoListedChildrenOf,
+	childrenOf,
+	isInCategory
+} from './categories';
 import type { ShowcaseProduct } from './types';
 
 /**
@@ -42,8 +48,7 @@ const PAGE_SEO: PageSeo[] = [
 	{
 		categoryId: 'beleza',
 		title: 'Achadinhos de beleza | Achadinhos da Lia',
-		description:
-			'Confira produtos de beleza e cuidados disponíveis na seleção de ofertas da Lia.',
+		description: 'Confira produtos de beleza e cuidados disponíveis na seleção de ofertas da Lia.',
 		intro:
 			'Veja produtos selecionados para cuidados pessoais, cabelo, pele e rotina de beleza. Antes de comprar, confira composição, indicação de uso, tamanho e demais informações fornecidas pelo vendedor.',
 		related: ['saude', 'moda']
@@ -78,8 +83,7 @@ const PAGE_SEO: PageSeo[] = [
 	{
 		categoryId: 'esportes-e-lazer',
 		title: 'Achadinhos de esportes e lazer | Achadinhos da Lia',
-		description:
-			'Explore produtos de esportes e lazer disponíveis na seleção de ofertas da Lia.',
+		description: 'Explore produtos de esportes e lazer disponíveis na seleção de ofertas da Lia.',
 		intro:
 			'Encontre produtos para esporte, treino e momentos de lazer na seleção da Lia. Antes de comprar, confira medidas, materiais, capacidade e indicação de uso de cada item.',
 		related: ['saude', 'automotivo', 'casa']
@@ -186,14 +190,27 @@ export type CategoryNavNode = {
 	label: string;
 	count: number;
 	children: CategoryNavNode[];
+	/** Grupo que vive em outro ramo e só aparece aqui por listagem dupla (ver ALSO_LISTED_IN). */
+	alsoListed?: boolean;
 };
 
-/** Filhos de `parentId` que têm ao menos um produto, com a contagem de cada ramo. */
+/**
+ * Filhos de `parentId` que têm ao menos um produto, com a contagem de cada ramo. Inclui os grupos
+ * listados em dois lugares (ex.: "Calçados femininos" também dentro de "Moda feminina").
+ */
 export function categoryTree(products: ShowcaseProduct[], parentId: string): CategoryNavNode[] {
-	return childrenOf(parentId).flatMap((node) => {
+	const direct = childrenOf(parentId).map((node) => ({ node, alsoListed: false }));
+	const shared = alsoListedChildrenOf(parentId).map((node) => ({ node, alsoListed: true }));
+	return [...direct, ...shared].flatMap(({ node, alsoListed }) => {
 		const count = products.filter((product) => isInCategory(product.categoryPath, node.id)).length;
 		if (count === 0) return [];
-		return { slug: node.id, label: node.name, count, children: categoryTree(products, node.id) };
+		return {
+			slug: node.id,
+			label: node.name,
+			count,
+			children: categoryTree(products, node.id),
+			...(alsoListed ? { alsoListed } : {})
+		};
 	});
 }
 
@@ -209,6 +226,7 @@ export function categoryPagesWithProducts(products: ShowcaseProduct[]): Category
 
 /** Caminho de ids de `id` até a primária, só se `id` for descendente de `primaryId`. */
 export function isDescendantOf(id: string, primaryId: string): boolean {
+	if (ALSO_LISTED_IN[id]?.includes(primaryId)) return true;
 	let current = CATEGORY_BY_ID.get(id);
 	for (let depth = 0; current && depth < 4; depth += 1) {
 		if (current.id === primaryId) return current.id !== id;

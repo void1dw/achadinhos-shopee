@@ -165,7 +165,7 @@
 	}
 	.sort-section {
 		border-color: rgb(13 40 107 / 8%);
-		background: linear-gradient(180deg, #fffdf8, #fff);
+		background: #f6f2e7;
 	}
 	.sort-inner {
 		min-height: 3.75rem;
@@ -196,7 +196,8 @@
 			background 150ms,
 			color 150ms,
 			border-color 150ms,
-			box-shadow 150ms;
+			box-shadow 150ms,
+			transform 150ms;
 	}
 	.sort-row {
 		display: flex;
@@ -206,14 +207,20 @@
 		min-width: 0;
 	}
 	.chip:hover {
+		transform: translateY(-1px);
 		border-color: rgb(244 99 16 / 55%);
 		box-shadow: 0 3px 9px rgb(13 40 107 / 7%);
+	}
+	.chip:active {
+		transform: scale(0.97);
 	}
 	.chip.on {
 		border-color: var(--lia-navy);
 		background: var(--lia-navy);
 		color: #fff;
-		box-shadow: 0 3px 9px rgb(13 40 107 / 16%);
+		box-shadow:
+			0 3px 9px rgb(13 40 107 / 16%),
+			inset 0 -2px 0 var(--lia-orange);
 	}
 	.icon-btn {
 		position: relative;
@@ -283,6 +290,9 @@
 	@media (prefers-reduced-motion: reduce) {
 		.chip {
 			transition: none;
+		}
+		.chip:hover {
+			transform: none;
 		}
 	}
 </style>

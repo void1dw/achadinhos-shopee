@@ -34,6 +34,8 @@ export type CategoryRule = {
 	hint?: string;
 	/** Também detalha produtos que a planilha já classificou em uma categoria mais ampla. */
 	refines?: boolean;
+	/** Só vale se a categoria da planilha for exatamente esta (ex.: "moda-masculina"). */
+	within?: string;
 };
 
 export const COSMETIC_OR_HOME_WORDS =
@@ -267,6 +269,282 @@ export const RULES: CategoryRule[] = [
 		hint: 'pet-shop',
 		refines: true,
 		match: [/\b(shampoo|condicionador|colonia|banho|toalhas?|escovas?|perfume|higiene|spray)\b/]
+	},
+
+	// ── Moda: a planilha classifica só por público (feminina, masculina, infantil); o título escolhe
+	// o tipo de peça. Títulos com peças concorrentes ficam no grupo do público.
+	{
+		id: 'moda-fem-vestidos',
+		target: 'moda-feminina-vestidos',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\bvestidos?\b/]
+	},
+	{
+		id: 'moda-fem-saias',
+		target: 'moda-feminina-saias',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\bsaias?\b/]
+	},
+	{
+		id: 'moda-fem-calcas',
+		target: 'moda-feminina-calcas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\b(calcas?|leggings?|jeans|pantalona)\b/],
+		exclude: [/\b(shorts?|bermudas?|conjuntos?|calcinhas?)\b/]
+	},
+	{
+		id: 'moda-fem-blusas',
+		target: 'moda-feminina-blusas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\b(blusas?|camisetas?|regatas?|cropped|camisas?)\b/],
+		exclude: [/\b(masculin[oa]s?|moletom|conjuntos?|pijamas?|camisolas?)\b/]
+	},
+	{
+		id: 'moda-fem-conjuntos',
+		target: 'moda-feminina-conjuntos',
+		priority: 22,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\bconjuntos?\b/],
+		exclude: [/\b(pijamas?|camisolas?|lingerie|baby ?do[lo]l?)\b/]
+	},
+	{
+		id: 'moda-fem-lingerie',
+		target: 'moda-feminina-lingerie',
+		priority: 25,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\b(calcinhas?|sutias?|lingerie|cintas?|modeladora?)\b/],
+		exclude: [/\b(varal|cabide|pijamas?|camisolas?|baby ?do[lo]l?)\b/]
+	},
+	{
+		id: 'moda-fem-pijamas',
+		target: 'moda-feminina-pijamas',
+		priority: 26,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\b(pijamas?|camisolas?|baby ?do[lo]l?|roupao)\b/]
+	},
+	{
+		id: 'moda-fem-casacos',
+		target: 'moda-feminina-casacos',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-feminina',
+		refines: true,
+		match: [/\b(jaquetas?|casacos?|cardigan|blazer|kimono|colete)\b/],
+		exclude: [/\b(conjuntos?|calcas?)\b/]
+	},
+	{
+		id: 'moda-masc-camisetas',
+		target: 'moda-masculina-camisetas',
+		priority: 22,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [/\b(camisetas?|regatas?)\b/]
+	},
+	{
+		id: 'moda-masc-camisas',
+		target: 'moda-masculina-camisas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [/\b(camisas?|polo)\b/]
+	},
+	{
+		id: 'moda-masc-calcas',
+		target: 'moda-masculina-calcas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [/\b(calcas?|jeans|joggers?)\b/],
+		exclude: [/\b(shorts?|bermudas?)\b/]
+	},
+	{
+		id: 'moda-masc-bermudas',
+		target: 'moda-masculina-bermudas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [/\b(bermudas?|shorts?)\b/]
+	},
+	{
+		id: 'moda-masc-cuecas-meias',
+		target: 'moda-masculina-cuecas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [/\b(cuecas?|meias?|boxer|sungas?)\b/]
+	},
+	{
+		id: 'moda-masc-casacos',
+		target: 'moda-masculina-casacos',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-masculina',
+		refines: true,
+		match: [
+			/\b(moletom|jaquetas?|casacos?|blusa de frio|corta vento|windbreaker|coat|jacket|canguru)\b/
+		],
+		exclude: [/\bcalcas?\b/]
+	},
+	{
+		id: 'moda-inf-bebe',
+		target: 'moda-infantil-bebe',
+		priority: 22,
+		hint: 'moda',
+		within: 'moda-infantil',
+		refines: true,
+		match: [/\b(bebes?|recem nascidos?)\b/]
+	},
+	{
+		id: 'moda-inf-meninas',
+		target: 'moda-infantil-meninas',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-infantil',
+		refines: true,
+		match: [/\b(meninas?|femininos?|femininas?)\b/]
+	},
+	{
+		id: 'moda-inf-meninos',
+		target: 'moda-infantil-meninos',
+		priority: 20,
+		hint: 'moda',
+		within: 'moda-infantil',
+		refines: true,
+		match: [/\b(meninos?|masculin[oa]s?)\b/]
+	},
+
+	// ── Casa, Beleza e Saúde: a planilha traz só o departamento; o título escolhe o grupo. ─────
+	{
+		id: 'casa-limpeza',
+		target: 'casa-limpeza',
+		priority: 22,
+		hint: 'casa',
+		within: 'casa',
+		refines: true,
+		match: [
+			/\b(mop|esfregao|esfregador|lavadora|vassouras?|rodos?|alvejante|detergente|limpeza)\b/
+		],
+		exclude: [/\borganizador\b/]
+	},
+	{
+		id: 'casa-cama-mesa-banho',
+		target: 'casa-cama-mesa-banho',
+		priority: 22,
+		hint: 'casa',
+		within: 'casa',
+		refines: true,
+		match: [
+			/\b(toalhas?|colchas?|lencois?|cobertores?|edredons?|fronhas?|travesseiros?|jogo americano|sousplast|pano de prato)\b/
+		]
+	},
+	{
+		id: 'casa-moveis',
+		target: 'casa-moveis',
+		priority: 20,
+		hint: 'casa',
+		within: 'casa',
+		refines: true,
+		match: [/\b(mesa de jantar|cadeiras?|banquetas?|puffs?|estantes?|sofas?|poltronas?)\b/],
+		exclude: [/\b(maquiagem|cosmeticos|organizadora?)\b/]
+	},
+	{
+		id: 'casa-decoracao',
+		target: 'casa-decoracao',
+		priority: 20,
+		hint: 'casa',
+		within: 'casa',
+		refines: true,
+		match: [
+			/\b(quadros?|decorativ\w*|decoracao|espelhos?|abajur|luminarias?|natal|natalin\w*|enfeites?|vasos?)\b/
+		]
+	},
+	{
+		id: 'casa-cozinha',
+		target: 'casa-cozinha',
+		priority: 20,
+		hint: 'casa',
+		within: 'casa',
+		refines: true,
+		match: [
+			/\b(panelas?|frigideiras?|utensilios|potes?|facas?|tabuas?|louca|xicaras?|tacas?|copos?|garrafas?|marmitas?|ralador|fatiador|cozinha)\b/
+		],
+		exclude: [/\b(lixeira|ferramentas?|furadeira|parafusadeira)\b/]
+	},
+	{
+		id: 'beleza-perfumes',
+		target: 'beleza-perfumes',
+		priority: 22,
+		hint: 'beleza',
+		within: 'beleza',
+		refines: true,
+		match: [/\b(perfumes?|body splash|colonia|eau de parfum)\b/],
+		exclude: [/\b(organizador|automotivo)\b/]
+	},
+	{
+		id: 'beleza-cabelos',
+		target: 'beleza-cabelos',
+		priority: 21,
+		hint: 'beleza',
+		within: 'beleza',
+		refines: true,
+		match: [
+			/\b(cabelos?|capilar|shampoo|condicionador|cond|elseve|progressivas?|chapinha|prancha|secador|secadora|leave in|frizz|alisadora)\b/
+		],
+		exclude: [/\b(automotivo|facial|organizador|perfumes?|body splash)\b/]
+	},
+	{
+		id: 'beleza-maquiagem',
+		target: 'beleza-maquiagem',
+		priority: 20,
+		hint: 'beleza',
+		within: 'beleza',
+		refines: true,
+		match: [/\b(maquiagem|pinceis|cilios|batom|sombras?)\b/],
+		exclude: [/\b(organizador)\b/]
+	},
+	{
+		id: 'beleza-pele',
+		target: 'beleza-pele',
+		priority: 20,
+		hint: 'beleza',
+		within: 'beleza',
+		refines: true,
+		match: [
+			/\b(facial|skincare|protetor solar|retinol|serum|anti ?(acne|manchas|idade)|estrias)\b/
+		],
+		exclude: [/\b(cabelos?|capilar|shampoo)\b/]
+	},
+	{
+		id: 'saude-massagem',
+		target: 'saude-massagem',
+		priority: 20,
+		hint: 'saude',
+		within: 'saude',
+		refines: true,
+		match: [/\b(massageador|massagem)\b/]
 	}
 ];
 
@@ -302,6 +580,8 @@ export type RuleContext = {
 	categoryHint?: string;
 	/** A planilha já classificou o produto: só valem as regras `refines`. */
 	refine?: boolean;
+	/** Id exato da categoria da planilha, para regras `within`. */
+	categoryId?: string;
 };
 
 function normalizeTitle(title: string): string {
@@ -318,6 +598,7 @@ export function classifyByRules(title: string, context: RuleContext = {}): RuleR
 		(rule) =>
 			(!context.refine || rule.refines === true) &&
 			(rule.hint === undefined || rule.hint === context.categoryHint) &&
+			(rule.within === undefined || rule.within === context.categoryId) &&
 			rule.match.every((pattern) => pattern.test(text)) &&
 			!(rule.exclude ?? []).some((pattern) => pattern.test(text))
 	);
