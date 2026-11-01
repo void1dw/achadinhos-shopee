@@ -38,7 +38,7 @@ export type AutoClassified = {
 	pathNames: string[];
 	rule: string;
 	/** Por que a categoria da planilha não bastou. */
-	origin: 'generic' | 'unknown' | 'pending' | 'confirmation';
+	origin: 'generic' | 'unknown' | 'pending' | 'confirmation' | 'refinement';
 };
 
 export type ParseOutcome = {
@@ -335,6 +335,23 @@ export function parseProducts(text: string): ParseOutcome {
 				TITLE_CONFIRMED_PRIMARIES.includes(resolution.category.id);
 			if (resolution.status === 'ok' && !needsTitle) {
 				resolvedDepth = resolution.path.length;
+				const refined = classifyByRules(name, {
+					categoryHint: resolution.path[0].id,
+					refine: true
+				});
+				const chain = refined.status === 'matched' ? categoryChain(refined.categoryId) : [];
+				// Só aprofunda dentro da categoria da planilha, nunca troca por outra.
+				if (
+					refined.status === 'matched' &&
+					chain.length > resolvedDepth &&
+					chain.every(isApproved) &&
+					chain[resolvedDepth - 1].id === resolution.category.id
+				) {
+					categoryId = refined.categoryId;
+					autoRule = refined.ruleId;
+					resolvedDepth = chain.length;
+					origin = 'refinement';
+				}
 			} else {
 				const eligible = resolution.status !== 'ambiguous';
 				const hint = 'path' in resolution ? resolution.path[0]?.id : undefined;

@@ -341,6 +341,8 @@ const DEFINITIONS: CategoryDef[] = [
 		'Automotivo e Moto',
 		'Automotivo e Motocicletas',
 		'Automobiles',
+		'Automóveis',
+		'Peças e Acessórios para Veículos',
 		'Carros',
 		'Veículos'
 	]),

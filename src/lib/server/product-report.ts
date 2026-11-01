@@ -6,7 +6,8 @@ const ORIGIN_LABEL = {
 	generic: 'genérica',
 	unknown: 'não reconhecida',
 	pending: 'aguardando aprovação',
-	confirmation: 'ampla, confirmada pelo título'
+	confirmation: 'ampla, confirmada pelo título',
+	refinement: 'detalhada pelo título'
 } as const;
 
 function clean(value: string, max = MAX_TEXT): string {

@@ -32,6 +32,8 @@ export type CategoryRule = {
 	exclude?: RegExp[];
 	/** Só vale se a categoria da planilha pertence a este departamento primário. */
 	hint?: string;
+	/** Também detalha produtos que a planilha já classificou em uma categoria mais ampla. */
+	refines?: boolean;
 };
 
 export const COSMETIC_OR_HOME_WORDS =
@@ -144,6 +146,127 @@ export const RULES: CategoryRule[] = [
 			/\b(celular|iphone|samsung|galaxy|xiaomi|motorola|redmi)\b/
 		],
 		exclude: [/\b(fones?|airpods?|notebook|tablet|ipad|relogio|smartwatch)\b/]
+	},
+
+	// ── Detalhamento de departamentos que a planilha classifica só no nível mais amplo ─────
+	// A planilha usa um único rótulo ("Automóveis", "Animais Domésticos"); o título escolhe o grupo.
+	// Sem correspondência clara (ou com grupos concorrentes), o produto fica no departamento.
+	{
+		id: 'auto-motos',
+		target: 'automotivo-motos',
+		priority: 30,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(motocicletas?|motoqueiros?|motociclistas?|capacetes?|para motos?|de motos?)\b/],
+		exclude: [/\b(motorola|infantil|brinquedo|carrinho|carros?|automotivo|usb|cabo|lenovo)\b/]
+	},
+	{
+		id: 'auto-iluminacao',
+		target: 'automotivo-pecas-iluminacao',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(farol|farois|lampadas?|neblina|lanternas?|h1|h3|h4|h7|h11|9005|9006)\b/],
+		exclude: [/\b(strip|fita|tira|ambiente|pedais?)\b/]
+	},
+	{
+		id: 'auto-manutencao-diagnostico',
+		target: 'automotivo-pecas',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(obd2?|scanner|diagnostico|testador|manometro|reboque|trava de capo|rele)\b/]
+	},
+	{
+		id: 'auto-fluidos',
+		target: 'automotivo-pecas-fluidos',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(oleo|aditivo|fluido|lubrificante|arrefecimento)\b/]
+	},
+	{
+		id: 'auto-multimidia',
+		target: 'automotivo-multimidia',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [
+			/\b(carplay|android auto|transmissor fm|estereo|multimidia|dashcam|dvr|camera (veicular|de re|frontal|traseira)|som automotivo|radio)\b/
+		],
+		exclude: [/\b(capa|protecao)\b/]
+	},
+	{
+		id: 'auto-suportes',
+		target: 'automotivo-acessorios-organizadores',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(suporte|organizador|porta objetos?|porta copos?|gancho)\b/],
+		exclude: [/\b(reboque)\b/]
+	},
+	{
+		id: 'auto-limpeza',
+		target: 'automotivo-limpeza',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [/\b(limpeza|lavagem|lavar|polidor|polimento|cera automotiva|karcher|aspirador)\b/]
+	},
+	{
+		id: 'auto-acessorios-internos',
+		target: 'automotivo-acessorios-internos',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [
+			/\b(capa (de|para) (assento|banco|volante|pedais?|painel|direcao)|capa decorativa|volante|pedais?|tapetes?|carregador|inversor|encosto|assento|painel|cinto)\b/
+		],
+		exclude: [/\b(bateria)\b/]
+	},
+	{
+		id: 'auto-acessorios-externos',
+		target: 'automotivo-acessorios-externos',
+		priority: 20,
+		hint: 'automotivo',
+		refines: true,
+		match: [
+			/\b(capa (da|de) (camera|chave)|chave|chaveiro|adesivos?|retrovisor|para choque|antena|spoiler)\b/
+		]
+	},
+	{
+		id: 'pet-aquarismo',
+		target: 'pet-shop-aquarismo',
+		priority: 20,
+		hint: 'pet-shop',
+		refines: true,
+		match: [/\b(aquarios?|peixes?|betas?|beteiras?|bettas?)\b/]
+	},
+	{
+		id: 'pet-caes',
+		target: 'pet-shop-caes',
+		priority: 20,
+		hint: 'pet-shop',
+		refines: true,
+		match: [/\b(caes|cao|cachorros?|cadelas?|filhotes? de cao)\b/],
+		exclude: [/\b(gatos?|felinos?)\b/, /\b(aquarios?|peixes?)\b/]
+	},
+	{
+		id: 'pet-gatos',
+		target: 'pet-shop-gatos',
+		priority: 20,
+		hint: 'pet-shop',
+		refines: true,
+		match: [/\b(gatos?|gatinhos?|felinos?)\b/],
+		exclude: [/\b(caes|cao|cachorros?)\b/, /\b(aquarios?|peixes?)\b/]
+	},
+	{
+		id: 'pet-higiene',
+		target: 'pet-shop-higiene',
+		priority: 15,
+		hint: 'pet-shop',
+		refines: true,
+		match: [/\b(shampoo|condicionador|colonia|banho|toalhas?|escovas?|perfume|higiene|spray)\b/]
 	}
 ];
 
@@ -177,6 +300,8 @@ export type RuleResult =
 export type RuleContext = {
 	/** Id do departamento primário da categoria original da planilha, quando ela foi reconhecida. */
 	categoryHint?: string;
+	/** A planilha já classificou o produto: só valem as regras `refines`. */
+	refine?: boolean;
 };
 
 function normalizeTitle(title: string): string {
@@ -191,6 +316,7 @@ export function classifyByRules(title: string, context: RuleContext = {}): RuleR
 
 	const hits = RULES.filter(
 		(rule) =>
+			(!context.refine || rule.refines === true) &&
 			(rule.hint === undefined || rule.hint === context.categoryHint) &&
 			rule.match.every((pattern) => pattern.test(text)) &&
 			!(rule.exclude ?? []).some((pattern) => pattern.test(text))

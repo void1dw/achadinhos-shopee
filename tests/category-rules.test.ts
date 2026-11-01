@@ -125,3 +125,53 @@ test('relatório separa classificação automática e informa a regra', () => {
 		/CLASSIFICADO EM: Alimentos e bebidas > Mercearia > Pastas e cremes de untar/
 	);
 });
+
+test('"Automóveis" da planilha é Automotivo e o título detalha o grupo', () => {
+	const out = parse(
+		row('1', 'Lâmpada de Farol LED H4 para Carro', 'Automóveis'),
+		row('2', 'Capa de Assento de Carro em Couro', 'Automóveis'),
+		row('3', 'Leitor OBD2 Scanner de Diagnóstico', 'Automóveis'),
+		row('4', 'Peça qualquer sem pista no título', 'Automóveis'),
+		row('5', 'Dashcam para Carro Câmera Veicular', 'Peças e Acessórios para Veículos')
+	);
+	assert.equal(out.items.length, 5);
+	const shown = toShowcase(out.items);
+	const path = (id: string) => shown.find((item) => item.id === id)?.categoryPath;
+	assert.deepEqual(path('1'), ['automotivo', 'automotivo-pecas', 'automotivo-pecas-iluminacao']);
+	assert.deepEqual(path('2'), [
+		'automotivo',
+		'automotivo-acessorios',
+		'automotivo-acessorios-internos'
+	]);
+	assert.deepEqual(path('3'), ['automotivo', 'automotivo-pecas']);
+	assert.deepEqual(path('4'), ['automotivo']);
+	assert.deepEqual(path('5'), ['automotivo', 'automotivo-multimidia']);
+	assert.equal(out.counts.rejected, 0);
+});
+
+test('detalhamento só aprofunda a categoria da planilha, sem desviar para outro departamento', () => {
+	const out = parse(
+		row('1', 'Capa de Celular com Farol LED', 'Celulares e Acessórios'),
+		row('2', 'Cabo USB Motorola Moto G', 'Automóveis'),
+		row('3', 'Coleira para Gatos', 'Animais Domésticos'),
+		row('4', 'Colônia Pet Cães e Gatos', 'Animais Domésticos'),
+		row('5', 'Sapato Social Masculino', 'Sapatos Masculinos')
+	);
+	const shown = toShowcase(out.items);
+	const path = (id: string) => shown.find((item) => item.id === id)?.categoryPath;
+	assert.deepEqual(path('1'), ['eletronicos', 'eletronicos-celulares']);
+	assert.deepEqual(path('2'), ['automotivo']);
+	assert.deepEqual(path('3'), ['pet-shop', 'pet-shop-gatos']);
+	assert.deepEqual(path('4'), ['pet-shop', 'pet-shop-higiene']);
+	assert.deepEqual(path('5'), ['moda', 'moda-calcados', 'moda-calcados-masculinos']);
+});
+
+test('regras de detalhamento exigem departamento e o relatório as identifica', () => {
+	for (const rule of RULES.filter((item) => item.refines)) {
+		assert.ok(rule.hint, `${rule.id}: regra de detalhamento sem hint`);
+		assert.ok(categoryChain(rule.target)[0]?.id === rule.hint, `${rule.id}: alvo fora do hint`);
+	}
+	const out = parse(row('1', 'Coleira para Gatos', 'Animais Domésticos'));
+	assert.equal(out.autoClassified[0].origin, 'refinement');
+	assert.match(formatProductReport(out, { details: true }), /detalhada pelo título/);
+});
