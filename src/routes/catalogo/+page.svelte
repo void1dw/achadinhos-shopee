@@ -7,18 +7,42 @@
 	import { trackProductListClick } from '../../lib/analytics';
 	import { catalogHref, CATALOG_PATH } from '../../lib/catalog';
 	import { PUBLIC_SITE_URL } from '../../lib/config';
+	import { jsonLdScript } from '../../lib/json-ld';
+	import { SOCIAL_IMAGE } from '../../lib/seo';
 	import { isAchadinho } from '../../lib/products';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	const canonical = new URL(CATALOG_PATH, PUBLIC_SITE_URL).toString();
+	const structuredData = {
+		'@context': 'https://schema.org',
+		'@graph': [
+			{
+				'@type': 'BreadcrumbList',
+				itemListElement: [
+					{ '@type': 'ListItem', position: 1, name: 'Início', item: PUBLIC_SITE_URL },
+					{ '@type': 'ListItem', position: 2, name: 'Catálogo completo', item: canonical }
+				]
+			},
+			{
+				'@type': 'CollectionPage',
+				'@id': `${canonical}#collection`,
+				name: 'Catálogo completo | Achadinhos da Lia',
+				url: canonical,
+				inLanguage: 'pt-BR',
+				isPartOf: { '@type': 'WebSite', name: 'Achadinhos da Lia', url: PUBLIC_SITE_URL }
+			}
+		]
+	};
 	const isDefault = $derived(
 		data.query.q === '' &&
 			data.query.category === '' &&
 			data.query.sort === 'recentes' &&
 			data.query.page === 1
 	);
+	// Versões filtradas apontam para a própria URL (normalizada); a padrão aponta para /catalogo.
+	const pageUrl = $derived(new URL(catalogHref(data.query), PUBLIC_SITE_URL).toString());
 	const description =
 		'Catálogo completo da Achadinhos da Lia: busque e filtre todos os produtos da Shopee, incluindo os achadinhos selecionados.';
 
@@ -38,14 +62,25 @@
 <svelte:head>
 	<title>Catálogo completo | Achadinhos da Lia</title>
 	<meta name="description" content={description} />
-	<link rel="canonical" href={canonical} />
+	<link rel="canonical" href={pageUrl} />
 	<meta name="robots" content={isDefault ? 'index, follow' : 'noindex, follow'} />
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Achadinhos da Lia" />
 	<meta property="og:locale" content="pt_BR" />
 	<meta property="og:title" content="Catálogo completo | Achadinhos da Lia" />
 	<meta property="og:description" content={description} />
-	<meta property="og:url" content={canonical} />
+	<meta property="og:url" content={pageUrl} />
+	<meta property="og:image" content={new URL(SOCIAL_IMAGE.path, PUBLIC_SITE_URL).toString()} />
+	<meta property="og:image:width" content={String(SOCIAL_IMAGE.width)} />
+	<meta property="og:image:height" content={String(SOCIAL_IMAGE.height)} />
+	<meta property="og:image:alt" content={SOCIAL_IMAGE.alt} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Catálogo completo | Achadinhos da Lia" />
+	<meta name="twitter:description" content={description} />
+	<meta name="twitter:image" content={new URL(SOCIAL_IMAGE.path, PUBLIC_SITE_URL).toString()} />
+	<meta name="twitter:image:alt" content={SOCIAL_IMAGE.alt} />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON-LD gerado por jsonLdScript, que escapa "<". -->
+	{@html jsonLdScript(structuredData)}
 </svelte:head>
 
 <div class="min-h-screen font-sans antialiased">

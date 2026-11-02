@@ -57,6 +57,50 @@ test('hook: /admin e subrotas recebem noindex, e a vitrine não', async () => {
 	assert.equal(home.response.headers.get('x-robots-tag'), null);
 });
 
+test('hook: http no domínio de produção redireciona 301 para https na raiz, preservando caminho e query', async () => {
+	for (const host of ['achadinhoslia.com.br', 'www.achadinhoslia.com.br']) {
+		const { response, resolved } = await run(`http://${host}/catalogo?pagina=2`);
+		assert.equal(response.status, 301);
+		assert.equal(
+			response.headers.get('location'),
+			'https://achadinhoslia.com.br/catalogo?pagina=2'
+		);
+		assert.equal(response.headers.get('cache-control'), 'no-store');
+		assert.equal(resolved, false);
+	}
+	// localhost em http (dev) e métodos não idempotentes não são redirecionados.
+	assert.equal((await run('http://localhost:5173/')).resolved, true);
+	assert.equal((await run('http://achadinhoslia.com.br/api/x', 'POST')).resolved, true);
+});
+
+test('hook: HSTS só em https no domínio de produção, sem includeSubDomains/preload', async () => {
+	const prod = await run('https://achadinhoslia.com.br/');
+	assert.equal(prod.response.headers.get('strict-transport-security'), 'max-age=15552000');
+	assert.equal(
+		(await run('https://localhost/')).response.headers.get('strict-transport-security'),
+		null
+	);
+	assert.equal(
+		(await run('https://achadinholia.x.workers.dev/')).response.headers.get(
+			'strict-transport-security'
+		),
+		null
+	);
+});
+
+test('hook: workers.dev recebe noindex sem ser redirecionado', async () => {
+	const { response, resolved } = await run('https://achadinholia.x.workers.dev/categoria/casa');
+	assert.equal(resolved, true);
+	assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
+	assert.equal(response.headers.get('cache-control'), 'no-store');
+});
+
+test('hook: domínio oficial não recebe no-store nem noindex do hook', async () => {
+	const { response } = await run('https://achadinhoslia.com.br/categoria/casa');
+	assert.equal(response.headers.get('cache-control'), null);
+	assert.equal(response.headers.get('x-robots-tag'), null);
+});
+
 test('robots.txt aponta o sitemap do domínio oficial', async () => {
 	const body = await robots().text();
 	assert.match(body, /^User-agent: \*/);
@@ -80,7 +124,10 @@ test('o domínio oficial é consistente: sem workers.dev nem grafias erradas em 
 
 	for (const file of files) {
 		const text = readFileSync(file, 'utf8');
-		assert.doesNotMatch(text, /\.workers\.dev/, `${file} referencia workers.dev`);
+		// canonical-host.ts precisa citar o sufixo para marcar esses hosts como noindex.
+		if (!file.endsWith('canonical-host.ts')) {
+			assert.doesNotMatch(text, /\.workers\.dev/, `${file} referencia workers.dev`);
+		}
 		assert.doesNotMatch(text, /achadinholia\.com/, `${file} usa grafia errada do domínio`);
 	}
 });

@@ -42,7 +42,9 @@
 			<h1
 				class="text-[1.6rem] leading-[1.08] font-extrabold tracking-tight text-lia-navy sm:text-5xl"
 			>
-				Só coisa nova,<br /><span class="text-lia-orange">achada pela Lia.</span>
+				<span class="sr-only">Ofertas da Shopee com desconto: </span>Só coisa nova,<br /><span
+					class="text-lia-orange">achada pela Lia.</span
+				>
 			</h1>
 			{#if highlights.length}
 				<HeroFeed items={offers} />

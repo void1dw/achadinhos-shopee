@@ -29,6 +29,16 @@
 		/** Categorias sugeridas quando a busca não encontra nada. */
 		suggestions?: { slug: string; label: string }[];
 		onsuggest?: (slug: string) => void;
+		/** O HTML trouxe só os primeiros produtos; a lista completa ainda não chegou. */
+		partial?: boolean;
+		/** O resultado depende da lista completa e ela ainda não está disponível. */
+		blocked?: boolean;
+		/** A lista completa está sendo carregada. */
+		loading?: boolean;
+		/** A última tentativa de carregar a lista completa falhou. */
+		failed?: boolean;
+		/** Pede a lista completa; resolve true se ela ficou disponível. */
+		onrequestfull?: () => Promise<boolean>;
 	};
 	let {
 		items,
@@ -45,7 +55,12 @@
 		itemListId,
 		itemListName,
 		suggestions = [],
-		onsuggest
+		onsuggest,
+		partial = false,
+		blocked = false,
+		loading = false,
+		failed = false,
+		onrequestfull
 	}: Props = $props();
 
 	const PAGE_SIZE = 40;
@@ -56,6 +71,24 @@
 		return PAGE_SIZE;
 	});
 	const shownCount = $derived(Math.min(visible, items.length));
+
+	let loadingMore = $state(false);
+	let moreFailed = $state(false);
+
+	async function showMore() {
+		if (loadingMore) return;
+		if (partial) {
+			loadingMore = true;
+			moreFailed = false;
+			const ok = (await onrequestfull?.()) ?? false;
+			loadingMore = false;
+			if (!ok) {
+				moreFailed = true;
+				return;
+			}
+		}
+		visible += PAGE_SIZE;
+	}
 
 	const handleRecentClick = (product: ShowcaseProduct) => (event: MouseEvent) => {
 		if (!isCountableProductClick(event)) return;
@@ -71,10 +104,32 @@
 		<p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
 			Não foi possível buscar os produtos agora. Tente de novo em instantes.
 		</p>
+	{:else if blocked}
+		<div class="empty" role="status" aria-live="polite">
+			{#if failed && !loading}
+				<p class="empty-title">Não foi possível carregar todos os produtos.</p>
+				<p class="empty-text">
+					Verifique sua conexão e tente de novo. Seus favoritos continuam salvos.
+				</p>
+				<button type="button" class="empty-clear focus-ring" onclick={() => void onrequestfull?.()}>
+					Tentar de novo
+				</button>
+				{#if canClear}
+					<button type="button" class="empty-chip focus-ring" onclick={onclear}>
+						Limpar busca e filtros
+					</button>
+				{/if}
+			{:else}
+				<span class="spinner" aria-hidden="true"></span>
+				<p class="empty-title">Buscando em todos os achadinhos…</p>
+			{/if}
+		</div>
 	{:else}
 		<p class="mb-3 text-sm text-lia-muted" aria-live="polite">
 			{#if items.length === 0}
 				Nenhum produto encontrado
+			{:else if partial}
+				Mostrando {shownCount} de {total} produtos
 			{:else}
 				Mostrando {shownCount} de {items.length} produtos{#if items.length !== total}{' '}(filtrados
 					de {total}){/if}
@@ -159,12 +214,23 @@
 				</section>
 			{/if}
 
-			{#if visible < items.length}
+			{#if visible < items.length || partial}
 				<div class="mt-6 text-center">
-					<button class="load-more focus-ring" onclick={() => (visible += PAGE_SIZE)}>
-						<span>Ver mais achados</span>
+					<button
+						class="load-more focus-ring"
+						onclick={showMore}
+						disabled={loadingMore}
+						aria-busy={loadingMore}
+					>
+						<span>{loadingMore ? 'Carregando…' : 'Ver mais achados'}</span>
 						<span class="load-more-icon" aria-hidden="true"><Plus size={16} /></span>
 					</button>
+					{#if moreFailed}
+						<p class="more-failed" role="alert">
+							Não foi possível carregar mais produtos agora. Toque em “Ver mais achados” para tentar
+							de novo.
+						</p>
+					{/if}
 				</div>
 			{/if}
 		{/if}
@@ -216,6 +282,33 @@
 	}
 	.empty-chip:hover {
 		border-color: var(--lia-orange);
+	}
+	.spinner {
+		width: 1.6rem;
+		height: 1.6rem;
+		border: 3px solid var(--lia-line);
+		border-top-color: var(--lia-orange);
+		border-radius: 50%;
+		animation: spin 800ms linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.spinner {
+			animation-duration: 2s;
+		}
+	}
+	.more-failed {
+		margin-top: 0.75rem;
+		color: #73521d;
+		font-size: 0.8125rem;
+	}
+	.load-more:disabled {
+		cursor: progress;
+		opacity: 0.8;
 	}
 	.stale-notice {
 		margin-bottom: 0.9rem;

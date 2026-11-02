@@ -10,31 +10,53 @@
 	import CategoryChips from '../../../lib/components/CategoryChips.svelte';
 	import { categoryChain, isInCategory } from '../../../lib/categories';
 	import { jsonLdScript } from '../../../lib/json-ld';
+	import { fetchProductFeed } from '../../../lib/product-feed';
+	import { SOCIAL_IMAGE } from '../../../lib/seo';
 	import { toast } from '../../../lib/toast.svelte';
+	import { EMPTY_FEED, FeedLoader, type FeedState } from '../../../lib/feed-loader';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const category = $derived(data.category);
-	const products = $derived(data.items);
+	/* O HTML traz só os primeiros produtos; a lista completa chega depois (ver product-feed.ts). */
+	let feed = $state<FeedState>(EMPTY_FEED);
+	const loader = new FeedLoader(
+		(key) => fetchProductFeed(fetch, key),
+		(next) => (feed = next)
+	);
+	// O componente é reaproveitado entre categorias: a lista completa vale só para o slug carregado.
+	const fullProducts = $derived(feed.key === category.slug ? feed.items : null);
+	const feedStatus = $derived(feed.key === category.slug ? feed.status : 'idle');
+	const ready = $derived(data.complete || fullProducts !== null);
+	const products = $derived(fullProducts ?? data.items);
+	const totalProducts = $derived(fullProducts ? fullProducts.length : data.total);
 	const canonical = $derived(new URL(`/categoria/${category.slug}`, PUBLIC_SITE_URL).toString());
 	const structuredData = $derived({
 		'@context': 'https://schema.org',
-		'@type': 'BreadcrumbList',
-		itemListElement: [
+		'@graph': [
 			{
-				'@type': 'ListItem',
-				position: 1,
-				name: 'Início',
-				item: PUBLIC_SITE_URL
+				'@type': 'BreadcrumbList',
+				itemListElement: [
+					{ '@type': 'ListItem', position: 1, name: 'Início', item: PUBLIC_SITE_URL },
+					{ '@type': 'ListItem', position: 2, name: category.label, item: canonical }
+				]
 			},
 			{
-				'@type': 'ListItem',
-				position: 2,
-				name: category.label,
-				item: canonical
+				'@type': 'CollectionPage',
+				'@id': `${canonical}#collection`,
+				name: category.title,
+				description: category.description,
+				url: canonical,
+				inLanguage: 'pt-BR',
+				isPartOf: { '@type': 'WebSite', name: 'Achadinhos da Lia', url: PUBLIC_SITE_URL }
 			}
 		]
 	});
+
+	/** Pede a lista completa da categoria (uma requisição por vez); resolve true quando disponível. */
+	function ensureFullProducts(): Promise<boolean> {
+		return data.complete ? Promise.resolve(true) : loader.ensure(category.slug);
+	}
 
 	let favoriteIds = $state<string[]>([]);
 	let recentIds = $state<string[]>([]);
@@ -44,6 +66,9 @@
 	const RECENT_LIMIT = 8;
 
 	let sub = $derived(data.initialSub);
+	// O HTML já traz os primeiros produtos da subcategoria pedida; qualquer outra visão precisa da lista completa.
+	const needsFull = $derived(favoritesOnly || sub !== data.initialSub);
+	const blocked = $derived(needsFull && !ready);
 	const subPath = $derived(sub ? categoryChain(sub).slice(1) : []);
 
 	const visibleProducts = $derived(
@@ -87,6 +112,18 @@
 		} catch {
 			toast.show('Não foi possível carregar os produtos vistos recentemente.');
 		}
+		if (favoriteIds.length + recentIds.length > 0) {
+			// Favoritos e vistos recentemente podem estar fora dos primeiros produtos.
+			void ensureFullProducts();
+		} else {
+			const idle =
+				window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 1500));
+			idle(() => void ensureFullProducts());
+		}
+	});
+
+	$effect(() => {
+		if (needsFull) void ensureFullProducts();
 	});
 
 	function toggleFavorite(id: string) {
@@ -129,7 +166,7 @@
 	<link rel="canonical" href={canonical} />
 	<meta
 		name="robots"
-		content={data.empty ? 'noindex, follow' : 'index, follow, max-image-preview:large'}
+		content={data.indexable ? 'index, follow, max-image-preview:large' : 'noindex, follow'}
 	/>
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Achadinhos da Lia" />
@@ -137,11 +174,15 @@
 	<meta property="og:title" content={category.title} />
 	<meta property="og:description" content={category.description} />
 	<meta property="og:url" content={canonical} />
-	<meta property="og:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:image" content={new URL(SOCIAL_IMAGE.path, PUBLIC_SITE_URL).toString()} />
+	<meta property="og:image:width" content={String(SOCIAL_IMAGE.width)} />
+	<meta property="og:image:height" content={String(SOCIAL_IMAGE.height)} />
+	<meta property="og:image:alt" content={SOCIAL_IMAGE.alt} />
+	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content={category.title} />
 	<meta name="twitter:description" content={category.description} />
-	<meta name="twitter:image" content={new URL('/lia.jpg', PUBLIC_SITE_URL).toString()} />
+	<meta name="twitter:image" content={new URL(SOCIAL_IMAGE.path, PUBLIC_SITE_URL).toString()} />
+	<meta name="twitter:image:alt" content={SOCIAL_IMAGE.alt} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON-LD gerado por jsonLdScript, que escapa "<". -->
 	{@html jsonLdScript(structuredData)}
 </svelte:head>
@@ -190,6 +231,16 @@
 				{category.label}
 			</h1>
 			<p class="mt-3 max-w-3xl text-base leading-7 text-lia-muted">{category.intro}</p>
+			<p class="mt-3 text-sm">
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- Rota interna com query montada a partir do slug. -->
+				<a
+					class="font-bold text-lia-navy underline underline-offset-4 hover:text-lia-orange"
+					href={`${resolve('/catalogo')}?categoria=${category.slug}`}
+				>
+					Ver todos os produtos de {category.label} no catálogo
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</p>
 		</section>
 
 		<CategoryChips
@@ -208,10 +259,10 @@
 			exclude={category.slug}
 		/>
 
-		{#if products.length > 0}
+		{#if totalProducts > 0}
 			<ProductGrid
 				items={visibleProducts}
-				total={products.length}
+				total={totalProducts}
 				{newIds}
 				unavailable={false}
 				stale={data.productsStale}
@@ -219,6 +270,11 @@
 				onclear={() => (favoritesOnly = false)}
 				{favoriteIds}
 				{recentItems}
+				partial={!ready && !blocked}
+				{blocked}
+				loading={feedStatus === 'loading'}
+				failed={feedStatus === 'error'}
+				onrequestfull={ensureFullProducts}
 				onfavorite={toggleFavorite}
 				onview={recordViewed}
 				itemListId={`category_${category.slug}`}

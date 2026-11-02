@@ -177,11 +177,16 @@ export function categoryProducts(
 	return products.filter((product) => isInCategory(product.categoryPath, category.slug));
 }
 
-/** Primárias aprovadas com página e ao menos um produto: as únicas que entram no sitemap. */
+/** Categoria com produtos suficientes para ser indexada (mesmo critério da navegação). */
+export function isIndexableCategory(itemCount: number): boolean {
+	return itemCount >= MIN_CATEGORY_PRODUCTS;
+}
+
+/** Primárias aprovadas com página e produtos suficientes: as únicas que entram no sitemap. */
 export function sitemapCategorySlugs(products: ShowcaseProduct[]): string[] {
-	return CATEGORY_PAGES.filter((page) => categoryProducts(products, page).length > 0).map(
-		(page) => page.slug
-	);
+	return CATEGORY_PAGES.filter((page) =>
+		isIndexableCategory(categoryProducts(products, page).length)
+	).map((page) => page.slug);
 }
 
 export type CategoryNavNode = {

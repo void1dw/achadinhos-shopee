@@ -1,29 +1,32 @@
 import type { PageServerLoad } from './$types';
+import { categoryPagesWithProducts } from '../lib/category-pages';
+import { SHOW_DEMO_DATA } from '../lib/config';
+import { INITIAL_PRODUCT_COUNT } from '../lib/product-feed';
+import { byNewest, pickHighlights } from '../lib/products';
 import { splitProducts } from '../lib/catalog';
-import { SHEET_PRODUCTS_CSV_URL, SHOW_DEMO_DATA } from '../lib/config';
-import { demoProducts } from '../lib/data/demo-data';
-import { loadProducts } from '../lib/server/sheets';
+import { achadinhoShowcase, loadFeed } from '../lib/server/feed';
 
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
-	if (SHOW_DEMO_DATA) {
-		const { achadinhos, counts } = splitProducts(demoProducts);
-		return { products: achadinhos, counts, sheetsUnavailable: false, productsStale: false };
+	const feed = await loadFeed(fetch);
+
+	if (!SHOW_DEMO_DATA) {
+		setHeaders({
+			'cache-control':
+				feed.unavailable || feed.stale ? 'no-store' : 'public, max-age=0, s-maxage=300'
+		});
 	}
 
-	const result = await loadProducts(fetch, SHEET_PRODUCTS_CSV_URL);
-
-	if (result.failed || result.stale) {
-		setHeaders({ 'cache-control': 'no-store' });
-	} else {
-		setHeaders({ 'cache-control': 'public, max-age=0, s-maxage=300' });
-	}
-
-	// Só os Achadinhos vão para a home; os demais produtos ficam no servidor até alguém abrir /catalogo.
-	const { achadinhos, counts } = splitProducts(result.items);
+	const showcase = achadinhoShowcase(feed.products);
+	const ordered = [...showcase].sort(byNewest);
+	// Só os primeiros produtos vão no HTML; a lista completa é carregada depois (ver product-feed.ts).
 	return {
-		products: achadinhos,
-		counts,
-		sheetsUnavailable: result.failed,
-		productsStale: result.stale ?? false
+		products: ordered.slice(0, INITIAL_PRODUCT_COUNT),
+		total: showcase.length,
+		complete: showcase.length <= INITIAL_PRODUCT_COUNT,
+		highlights: pickHighlights(showcase),
+		categories: categoryPagesWithProducts(showcase),
+		counts: splitProducts(feed.products).counts,
+		sheetsUnavailable: feed.unavailable,
+		productsStale: feed.stale
 	};
 };

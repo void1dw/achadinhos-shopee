@@ -118,12 +118,18 @@ test('desconto só entre valores comparáveis', () => {
 	assert.equal(discountPercent({ ...base, price: 100 }), null);
 });
 
-test('sitemap inclui só primárias com produtos', () => {
+test('sitemap inclui só primárias com produtos suficientes (mesmo mínimo da navegação)', () => {
+	const rows = (start: number, name: string, category: string, count: number) =>
+		Array.from(
+			{ length: count },
+			(_, i) => `${start + i},${name} ${i},${category},"R$ 10,00",,${IMG},${URL_}`
+		);
 	const out = parseProducts(
 		sheet(
-			`1,Fone,Áudio,"R$ 10,00",,${IMG},${URL_}`,
-			`2,Vestido,Roupas Femininas,"R$ 10,00",,${IMG},${URL_}`,
-			`3,Barra,Alimentos,"R$ 10,00",,${IMG},${URL_}`
+			...rows(100, 'Fone', 'Áudio', 5),
+			...rows(200, 'Vestido', 'Roupas Femininas', 5),
+			...rows(300, 'Barra', 'Alimentos', 4),
+			`1,Caderno,Papelaria,"R$ 10,00",,${IMG},${URL_}`
 		)
 	);
 	assert.deepEqual(sitemapCategorySlugs(toShowcase(out.items)).sort(), ['eletronicos', 'moda']);
