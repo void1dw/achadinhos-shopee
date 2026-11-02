@@ -30,24 +30,27 @@
 			<ul class="trust-list">
 				{#if secure}
 					<li class="trust-item">
-						<span class="trust-icon"><ShieldCheck size={16} aria-hidden="true" /></span>
-						<span>Conexão protegida por HTTPS</span>
+						<span class="seal"><ShieldCheck size={22} aria-hidden="true" /></span>
+						<strong>Conexão protegida</strong>
+						<span class="trust-note">Conexão protegida por HTTPS</span>
 					</li>
 				{/if}
 				<li class="trust-item">
-					<span class="trust-icon"><ShoppingBag size={16} aria-hidden="true" /></span>
-					<span>Você compra diretamente na Shopee.</span>
+					<span class="seal"><ShoppingBag size={22} aria-hidden="true" /></span>
+					<strong>Compra na Shopee</strong>
+					<span class="trust-note">Você compra diretamente na Shopee.</span>
 				</li>
 				<li class="trust-item">
-					<span class="trust-icon"><Eye size={16} aria-hidden="true" /></span>
-					<span>
-						Links de afiliados: podemos receber comissão pelas compras realizadas, sem custo
-						adicional para você.
+					<span class="seal"><Eye size={22} aria-hidden="true" /></span>
+					<strong>Links de afiliados</strong>
+					<span class="trust-note">
+						Podemos receber comissão pelas compras realizadas, sem custo adicional para você.
 					</span>
 				</li>
 				<li class="trust-item">
-					<span class="trust-icon"><Cloud size={16} aria-hidden="true" /></span>
-					<span>Usamos serviços da Cloudflare</span>
+					<span class="seal"><Cloud size={22} aria-hidden="true" /></span>
+					<strong>Cloudflare</strong>
+					<span class="trust-note">Usamos serviços da Cloudflare</span>
 				</li>
 			</ul>
 		</section>
@@ -209,33 +212,66 @@
 		flex-wrap: wrap;
 		align-items: stretch;
 		justify-content: center;
-		gap: 0.6rem;
+		gap: 0.85rem;
+		width: 100%;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 	.trust-item {
+		position: relative;
 		display: flex;
+		flex: 1 1 11rem;
+		flex-direction: column;
 		align-items: center;
-		gap: 0.55rem;
-		padding: 0.4rem 0.8rem 0.4rem 0.45rem;
-		border: 1px solid rgb(13 40 107 / 10%);
-		border-radius: 999px;
-		background: #f6f2e7;
+		max-width: 15rem;
+		gap: 0.3rem;
+		padding: 1.1rem 0.9rem 1rem;
+		border: 1px solid rgb(13 40 107 / 14%);
+		border-radius: 16px;
+		background: linear-gradient(180deg, #fffdf7, #f6f2e7);
+		box-shadow: 0 6px 16px rgb(13 40 107 / 6%);
 		color: #46536a;
-		font-size: 0.72rem;
-		line-height: 1.35;
+		text-align: center;
+		transition:
+			box-shadow 200ms,
+			transform 200ms;
 	}
-	.trust-icon {
-		display: inline-flex;
-		flex: none;
-		align-items: center;
-		justify-content: center;
-		width: 1.55rem;
-		height: 1.55rem;
+	.trust-item::before {
+		position: absolute;
+		inset: 4px;
+		border: 1px dashed rgb(251 198 25 / 65%);
+		border-radius: 12px;
+		content: '';
+		pointer-events: none;
+	}
+	.trust-item:hover {
+		box-shadow: 0 10px 22px rgb(13 40 107 / 11%);
+		transform: translateY(-2px);
+	}
+	.seal {
+		display: grid;
+		width: 3rem;
+		height: 3rem;
+		place-items: center;
+		margin-bottom: 0.25rem;
+		border: 2px solid var(--lia-yellow);
 		border-radius: 50%;
-		background: #e4eaf8;
+		background: var(--lia-navy);
+		box-shadow:
+			0 0 0 3px #fffdf7,
+			0 0 0 4.5px rgb(13 40 107 / 25%);
+		color: #fff;
+	}
+	.trust-item strong {
 		color: var(--lia-navy);
+		font-size: 0.82rem;
+		font-weight: 800;
+		letter-spacing: -0.01em;
+	}
+	.trust-note {
+		font-size: 0.68rem;
+		line-height: 1.4;
 	}
 	.footer-bottom {
 		flex-wrap: wrap;
@@ -276,6 +312,7 @@
 		}
 		.footer-orbit,
 		.back-top,
+		.trust-item,
 		.footer-mark {
 			animation: none;
 			transition: none;
@@ -301,6 +338,18 @@
 		}
 		.footer-orbit {
 			right: -40px;
+		}
+		.trust-list {
+			gap: 0.6rem;
+		}
+		.trust-item {
+			flex: 0 1 calc(50% - 0.3rem);
+			max-width: none;
+			padding: 0.9rem 0.6rem 0.8rem;
+		}
+		.seal {
+			width: 2.6rem;
+			height: 2.6rem;
 		}
 	}
 </style>

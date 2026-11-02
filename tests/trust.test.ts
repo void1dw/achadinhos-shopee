@@ -35,7 +35,7 @@ test('o selo de HTTPS é condicionado à conexão e o rodapé não exibe a Pesqu
 test('o rodapé traz os textos de confiança exigidos e nenhuma marca indevida', () => {
 	assert.match(footer, /Conexão protegida por HTTPS/);
 	assert.match(footer, /Você compra diretamente na Shopee\./);
-	assert.match(footer, /podemos receber comissão pelas compras realizadas, sem custo/);
+	assert.match(footer, /Podemos receber comissão pelas compras realizadas, sem custo/);
 	assert.doesNotMatch(footer, /mercado\s*livre/i);
 	assert.doesNotMatch(footer, /certificad|aprovad[oa] pel/i);
 });
