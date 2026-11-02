@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import CategoryChips from '../lib/components/CategoryChips.svelte';
+	import CatalogCallout from '../lib/components/CatalogCallout.svelte';
 	import CategoryLinks from '../lib/components/CategoryLinks.svelte';
 	import FilterBar from '../lib/components/FilterBar.svelte';
 	import Hero from '../lib/components/Hero.svelte';
@@ -132,7 +133,8 @@
 
 <div class="min-h-screen font-sans antialiased">
 	<SiteHeader
-		count={products.length}
+		achadinhos={data.counts.achadinhos}
+		catalog={data.counts.catalog}
 		favoriteCount={favoriteIds.length}
 		onshowfavorites={() => (filters.favoritesOnly = true)}
 	/>
@@ -165,6 +167,7 @@
 				selectCategory(slug);
 			}}
 		/>
+		<CatalogCallout count={data.counts.catalog} />
 		<CategoryLinks categories={categoryPageLinks} heading="Páginas de categorias" />
 	</main>
 

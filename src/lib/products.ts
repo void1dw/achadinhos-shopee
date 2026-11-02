@@ -14,6 +14,14 @@ export function discountPercent(product: Product): number | null {
 	return percent > 0 ? percent : null;
 }
 
+/** Desconto mínimo (em %) que define um Achadinho; o restante da base é só Catálogo. */
+export const ACHADINHO_MIN_DISCOUNT = 20;
+
+/** Achadinho = desconto de 20% ou mais, medido pelo mesmo cálculo exibido nos cards. */
+export function isAchadinho(product: Product): boolean {
+	return (discountPercent(product) ?? 0) >= ACHADINHO_MIN_DISCOUNT;
+}
+
 /**
  * Classifica cada produto na taxonomia e pré-calcula desconto e texto de busca (feito uma vez,
  * não a cada filtro). Produtos sem categoria aprovada não entram na vitrine.

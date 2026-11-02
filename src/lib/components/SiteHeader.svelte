@@ -3,14 +3,23 @@
 	import { Heart } from '@lucide/svelte';
 
 	let {
-		count,
+		achadinhos,
+		catalog,
 		favoriteCount,
-		onshowfavorites
+		onshowfavorites,
+		showFavorites = true
 	}: {
-		count: number;
+		/** Produtos classificados como Achadinho (destaque principal). */
+		achadinhos: number;
+		/** Total do Catálogo Completo (informação complementar). */
+		catalog: number;
 		favoriteCount: number;
 		onshowfavorites: () => void;
+		/** O catálogo não tem favoritos, então esconde o atalho. */
+		showFavorites?: boolean;
 	} = $props();
+
+	const format = (value: number) => value.toLocaleString('pt-BR');
 </script>
 
 <header id="top" class="site-header border-b border-lia-line bg-lia-cream/90 backdrop-blur">
@@ -29,14 +38,24 @@
 			</span>
 		</a>
 		<div class="header-actions">
-			<nav class="header-nav" aria-label="Navegação principal">
-				<a href="#produtos" class="nav-link favorite-link" onclick={onshowfavorites}>
-					<Heart size={15} fill={favoriteCount > 0 ? 'currentColor' : 'none'} />
-					Favoritos
-					<span class="favorite-count">{favoriteCount}</span>
-				</a>
-			</nav>
-			<span class="live"><i class="pulse-dot"></i>{count} <span>achados</span></span>
+			{#if showFavorites}
+				<nav class="header-nav" aria-label="Navegação principal">
+					<a href="#produtos" class="nav-link favorite-link" onclick={onshowfavorites}>
+						<Heart size={15} fill={favoriteCount > 0 ? 'currentColor' : 'none'} />
+						Favoritos
+						<span class="favorite-count">{favoriteCount}</span>
+					</a>
+				</nav>
+			{/if}
+			<span class="live"><i class="pulse-dot"></i>{format(achadinhos)} <span>achadinhos</span></span
+			>
+			<a
+				href={resolve('/catalogo')}
+				class="live live-link"
+				aria-label="Catálogo completo: {format(catalog)} produtos"
+			>
+				<i class="pulse-dot"></i>{format(catalog)} <span>no catálogo</span>
+			</a>
 		</div>
 	</div>
 </header>
@@ -154,6 +173,23 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 	}
+	.live {
+		white-space: nowrap;
+	}
+	.live-link {
+		transition:
+			border-color 180ms,
+			transform 180ms,
+			box-shadow 180ms;
+	}
+	.live-link:hover {
+		border-color: var(--lia-orange);
+		box-shadow: 0 4px 12px rgb(244 99 16 / 14%);
+		transform: translateY(-1px);
+	}
+	.live-link:active {
+		transform: scale(0.97);
+	}
 	@media (max-width: 700px) {
 		.header-inner {
 			grid-template-columns: minmax(0, 1fr) auto;
@@ -201,6 +237,11 @@
 		.header-inner > a {
 			gap: 0.45rem;
 		}
+		.header-actions {
+			grid-column: 1 / -1;
+			grid-row: 2;
+			justify-self: start;
+		}
 		.brand-copy strong {
 			font-size: 0.9rem;
 		}
@@ -208,9 +249,9 @@
 			font-size: 0.58rem;
 		}
 		.live {
-			gap: 0.25rem;
-			padding: 0.28rem 0.45rem;
-			font-size: 0.65rem;
+			gap: 0.3rem;
+			padding: 0.28rem 0.55rem;
+			font-size: 0.68rem;
 		}
 	}
 	@keyframes header-glide {

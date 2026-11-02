@@ -58,8 +58,8 @@
 				Seleção independente de ofertas e cupons.
 			</p>
 			<p class="disclosure">
-				Sem vínculo oficial com a Shopee. Confirme preço e disponibilidade na loja. Alguns links
-				podem gerar comissão de afiliado.
+				Sem vínculo oficial com a Shopee. Preço e disponibilidade são definidos pela loja e podem
+				mudar.
 			</p>
 			<span class="copyright">© {new Date().getFullYear()} Achadinhos da Lia</span>
 		</div>

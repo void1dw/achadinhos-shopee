@@ -12,6 +12,7 @@ import {
 import { SHEET_PRODUCTS_CSV_URL, SHOW_DEMO_DATA } from '../../../lib/config';
 import { demoProducts } from '../../../lib/data/demo-data';
 import { toShowcase } from '../../../lib/products';
+import { splitProducts } from '../../../lib/catalog';
 import { loadProducts } from '../../../lib/server/sheets';
 import type { Product } from '../../../lib/types';
 
@@ -43,7 +44,10 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) =
 		}
 	}
 
-	const showcaseProducts = toShowcase(products);
+	const split = splitProducts(products);
+	const counts = split.counts;
+	// Categorias listam só Achadinhos; o restante fica no /catalogo.
+	const showcaseProducts = toShowcase(split.achadinhos);
 	const availableCategories = categoryPagesWithProducts(showcaseProducts);
 	const items = categoryProducts(showcaseProducts, category);
 	const subTree = categoryTree(items, category.slug);
@@ -67,6 +71,7 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) =
 
 	return {
 		category,
+		counts,
 		items,
 		subTree,
 		initialSub,

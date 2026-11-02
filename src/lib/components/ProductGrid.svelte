@@ -69,7 +69,7 @@
 
 	{#if unavailable}
 		<p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-			A Lia não conseguiu buscar os produtos agora. Tente de novo em instantes.
+			Não foi possível buscar os produtos agora. Tente de novo em instantes.
 		</p>
 	{:else}
 		<p class="mb-3 text-sm text-lia-muted" aria-live="polite">
@@ -129,12 +129,6 @@
 				{/each}
 			</div>
 
-			<p class="notice">
-				Preços e disponibilidade são definidos pela Shopee e podem mudar. Podemos receber comissão
-				pelas compras realizadas pelos nossos links. Cupons: resgate-os na Shopee antes de finalizar
-				a compra.
-			</p>
-
 			{#if recentItems.length > 0}
 				<section class="recent" aria-labelledby="recent-heading">
 					<div class="recent-heading">
@@ -178,16 +172,6 @@
 </section>
 
 <style>
-	.notice {
-		margin: 0.9rem 0;
-		padding: 0.6rem 0.8rem;
-		border: 1px solid var(--lia-line);
-		border-radius: 12px;
-		background: #fffaf0;
-		color: #4b5565;
-		font-size: 0.8125rem;
-		line-height: 1.5;
-	}
 	.empty {
 		display: grid;
 		justify-items: center;

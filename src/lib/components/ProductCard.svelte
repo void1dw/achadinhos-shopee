@@ -9,17 +9,29 @@
 		product: ShowcaseProduct;
 		/** Posição na lista: define prioridade de carregamento da imagem e o atraso da animação. */
 		index: number;
-		isNew: boolean;
-		isFavorite: boolean;
-		onfavorite: (id: string) => void;
-		onview: (id: string) => void;
+		isNew?: boolean;
+		/** Etiqueta "Achadinho" (usada no catálogo, onde há produtos que não são Achadinhos). */
+		achadinho?: boolean;
+		isFavorite?: boolean;
+		/** Sem este callback o coração não é exibido (o catálogo não tem favoritos). */
+		onfavorite?: (id: string) => void;
+		onview?: (id: string) => void;
 		onproductclick: (product: ShowcaseProduct) => void;
 	};
-	let { product, index, isNew, isFavorite, onfavorite, onview, onproductclick }: Props = $props();
+	let {
+		product,
+		index,
+		isNew = false,
+		achadinho = false,
+		isFavorite = false,
+		onfavorite,
+		onview,
+		onproductclick
+	}: Props = $props();
 
 	function handleProductClick(event: MouseEvent) {
 		if (!isCountableProductClick(event)) return;
-		onview(product.id);
+		onview?.(product.id);
 		onproductclick(product);
 	}
 </script>
@@ -44,7 +56,8 @@
 				width="300"
 				height="300"
 			/>
-			{#if isNew}<span class="new">Novo</span>{/if}
+			{#if isNew}<span class="new">Novo</span>{:else if achadinho}<span class="new">Achadinho</span
+				>{/if}
 			{#if product.discountPercent}<span class="disc">{product.discountPercent}% OFF</span>{/if}
 		</div>
 		<div class="details">
@@ -63,16 +76,20 @@
 			</div>
 		</div>
 	</a>
-	<button
-		type="button"
-		class:active={isFavorite}
-		class="favorite focus-ring"
-		aria-label="{isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}: {product.name}"
-		aria-pressed={isFavorite}
-		onclick={() => onfavorite(product.id)}
-	>
-		<Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
-	</button>
+	{#if onfavorite}
+		<button
+			type="button"
+			class:active={isFavorite}
+			class="favorite focus-ring"
+			aria-label="{isFavorite
+				? 'Remover dos favoritos'
+				: 'Adicionar aos favoritos'}: {product.name}"
+			aria-pressed={isFavorite}
+			onclick={() => onfavorite(product.id)}
+		>
+			<Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
+		</button>
+	{/if}
 </article>
 
 <style>

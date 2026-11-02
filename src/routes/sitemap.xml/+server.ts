@@ -2,6 +2,7 @@ import { sitemapCategorySlugs } from '../../lib/category-pages';
 import { PUBLIC_SITE_URL, SHEET_PRODUCTS_CSV_URL, SHOW_DEMO_DATA } from '../../lib/config';
 import { demoProducts } from '../../lib/data/demo-data';
 import { toShowcase } from '../../lib/products';
+import { splitProducts } from '../../lib/catalog';
 import { loadProducts } from '../../lib/server/sheets';
 import type { RequestHandler } from './$types';
 
@@ -23,8 +24,8 @@ export const GET: RequestHandler = async ({ fetch }) => {
 		products = result.items;
 	}
 
-	const categoryUrls = sitemapCategorySlugs(toShowcase(products)).map((slug) =>
-		new URL(`/categoria/${slug}`, PUBLIC_SITE_URL).toString()
+	const categoryUrls = sitemapCategorySlugs(toShowcase(splitProducts(products).achadinhos)).map(
+		(slug) => new URL(`/categoria/${slug}`, PUBLIC_SITE_URL).toString()
 	);
 	const locations = [PUBLIC_SITE_URL, ...categoryUrls]
 		.map((url) => `\t<url>\n\t\t<loc>${escapeXml(url)}</loc>\n\t</url>`)

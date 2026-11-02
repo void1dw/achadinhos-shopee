@@ -148,7 +148,8 @@
 
 <div class="min-h-screen font-sans antialiased">
 	<SiteHeader
-		count={products.length}
+		achadinhos={data.counts.achadinhos}
+		catalog={data.counts.catalog}
 		favoriteCount={favoriteIds.length}
 		onshowfavorites={() => (favoritesOnly = true)}
 	/>

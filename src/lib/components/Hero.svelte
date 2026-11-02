@@ -44,9 +44,6 @@
 			>
 				Só coisa nova,<br /><span class="text-lia-orange">achada pela Lia.</span>
 			</h1>
-			<p class="mt-2 max-w-md text-sm text-lia-muted sm:text-base">
-				Ofertas e cupons selecionados para você encontrar seu próximo achado.
-			</p>
 			{#if highlights.length}
 				<HeroFeed items={offers} />
 			{/if}
