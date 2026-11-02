@@ -54,7 +54,7 @@
 				class="live live-link"
 				aria-label="Catálogo completo: {format(catalog)} produtos"
 			>
-				<i class="pulse-dot"></i>{format(catalog)} <span>no catálogo</span>
+				<i class="pulse-dot"></i>{format(catalog)} <span><span class="no">no </span>catálogo</span>
 			</a>
 		</div>
 	</div>
@@ -231,27 +231,37 @@
 			padding-left: 0.75rem;
 		}
 		.brand-mark {
-			width: 2.2rem;
-			height: 2.2rem;
+			width: 2rem;
+			height: 2rem;
 		}
 		.header-inner > a {
-			gap: 0.45rem;
+			gap: 0.35rem;
 		}
 		.header-actions {
-			grid-column: 1 / -1;
-			grid-row: 2;
-			justify-self: start;
+			gap: 0.15rem;
 		}
-		.brand-copy strong {
-			font-size: 0.9rem;
+		.header-nav {
+			display: none;
 		}
 		.brand-copy small {
-			font-size: 0.58rem;
+			display: none;
+		}
+		.brand-copy strong {
+			font-size: 0.72rem;
+			white-space: nowrap;
 		}
 		.live {
-			gap: 0.3rem;
-			padding: 0.28rem 0.55rem;
-			font-size: 0.68rem;
+			gap: 0.2rem;
+			padding: 0.22rem 0.35rem;
+			font-size: 0.6rem;
+		}
+		.live-link .no {
+			display: none;
+		}
+	}
+	@media (max-width: 380px) {
+		.brand-copy strong {
+			font-size: 0.64rem;
 		}
 	}
 	@keyframes header-glide {
