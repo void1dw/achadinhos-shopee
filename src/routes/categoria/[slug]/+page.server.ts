@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {
@@ -13,13 +14,10 @@ import {
 import { isInCategory } from '../../../lib/categories';
 import { INITIAL_PRODUCT_COUNT } from '../../../lib/product-feed';
 import { byNewest, toShowcase } from '../../../lib/products';
-import { SHEET_PRODUCTS_CSV_URL, SHOW_DEMO_DATA } from '../../../lib/config';
-import { demoProducts } from '../../../lib/data/demo-data';
 import { splitProducts } from '../../../lib/catalog';
-import { loadProducts } from '../../../lib/server/sheets';
-import type { Product } from '../../../lib/types';
+import { loadFeed, publicCacheControl } from '../../../lib/server/feed';
 
-export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) => {
+export const load: PageServerLoad = async ({ params, setHeaders, url }) => {
 	const legacy = legacyRedirectTarget(params.slug);
 	if (legacy) {
 		redirect(301, `/categoria/${legacy.primary}?sub=${legacy.sub}`);
@@ -31,23 +29,10 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) =
 		error(404, 'Categoria não encontrada');
 	}
 
-	let products: Product[];
-	let stale = false;
-	let productsUnavailable = false;
-	if (SHOW_DEMO_DATA) {
-		products = demoProducts;
-	} else {
-		const result = await loadProducts(fetch, SHEET_PRODUCTS_CSV_URL);
-		if (result.failed && !result.stale) {
-			products = [];
-			productsUnavailable = true;
-		} else {
-			products = result.items;
-			stale = result.stale ?? false;
-		}
-	}
+	const feed = await loadFeed(env.CANDIDATES_DB);
+	const productsUnavailable = feed.unavailable;
 
-	const split = splitProducts(products);
+	const split = splitProducts(feed.products);
 	const counts = split.counts;
 	// Categorias listam só Achadinhos; o restante fica no /catalogo.
 	const showcaseProducts = toShowcase(split.achadinhos);
@@ -68,9 +53,7 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) =
 		})
 		.filter((candidate) => candidate !== undefined);
 
-	setHeaders({
-		'cache-control': productsUnavailable || stale ? 'no-store' : 'public, max-age=0, s-maxage=300'
-	});
+	setHeaders({ 'cache-control': publicCacheControl(productsUnavailable) });
 
 	// Só os primeiros produtos (da subcategoria pedida) vão no HTML; o restante vem de /api/produtos.
 	const initialItems = (
@@ -91,7 +74,6 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, url }) =
 		// Poucos produtos: a página continua acessível (200), mas fica fora do índice e do sitemap.
 		indexable: productsUnavailable || isIndexableCategory(items.length),
 		relatedCategories,
-		productsStale: stale,
 		productsUnavailable
 	};
 };

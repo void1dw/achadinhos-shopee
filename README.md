@@ -12,6 +12,8 @@ npm run check     # confere tipos e Svelte
 npm run format    # arruma a formatação (Prettier)
 ```
 
+As instruções de configuração local, acesso administrativo e teste da conexão Shopee estão em [docs/local-development.md](./docs/local-development.md).
+
 ## Como os produtos entram
 
 A planilha é lida no servidor (`src/lib/server/sheets.ts`), com cache de 5 minutos. Se a planilha falhar depois de uma carga válida, o site mantém a última versão em cache e avisa que preços e disponibilidade podem ter mudado. Linhas com dados obrigatórios inválidos ou URLs que não sejam HTTP(S) são ignoradas; IDs repetidos são ajustados para permanecer únicos.

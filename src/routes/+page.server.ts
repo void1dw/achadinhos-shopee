@@ -1,19 +1,17 @@
+import { env } from 'cloudflare:workers';
 import type { PageServerLoad } from './$types';
 import { categoryPagesWithProducts } from '../lib/category-pages';
 import { SHOW_DEMO_DATA } from '../lib/config';
 import { INITIAL_PRODUCT_COUNT } from '../lib/product-feed';
 import { byNewest, pickHighlights } from '../lib/products';
 import { splitProducts } from '../lib/catalog';
-import { achadinhoShowcase, loadFeed } from '../lib/server/feed';
+import { achadinhoShowcase, loadFeed, publicCacheControl } from '../lib/server/feed';
 
-export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
-	const feed = await loadFeed(fetch);
+export const load: PageServerLoad = async ({ setHeaders }) => {
+	const feed = await loadFeed(env.CANDIDATES_DB);
 
 	if (!SHOW_DEMO_DATA) {
-		setHeaders({
-			'cache-control':
-				feed.unavailable || feed.stale ? 'no-store' : 'public, max-age=0, s-maxage=300'
-		});
+		setHeaders({ 'cache-control': publicCacheControl(feed.unavailable) });
 	}
 
 	const showcase = achadinhoShowcase(feed.products);
@@ -26,7 +24,6 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		highlights: pickHighlights(showcase),
 		categories: categoryPagesWithProducts(showcase),
 		counts: splitProducts(feed.products).counts,
-		sheetsUnavailable: feed.unavailable,
-		productsStale: feed.stale
+		productsUnavailable: feed.unavailable
 	};
 };

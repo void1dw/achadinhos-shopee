@@ -9,11 +9,12 @@
     "preview": "npm run build && wrangler dev",
     "prepare": "svelte-kit sync || echo ''",
     "check": "wrangler types && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test": "node --import ./scripts/register-ts.mjs --test \"tests/*.test.ts\"",
+    "test": "node --import ./scripts/register-ts.mjs --test --test-concurrency=1 \"tests/*.test.ts\"",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "gen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply achadinhos-candidates --local",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types"
   },

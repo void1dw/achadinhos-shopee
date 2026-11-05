@@ -120,7 +120,7 @@ function parseCsv(text: string): CsvRow[] {
 	return rows;
 }
 
-function normalizeHeader(value: string): string {
+export function normalizeHeader(value: string): string {
 	return value
 		.normalize('NFD')
 		.replace(/[\u0300-\u036f]/g, '')
@@ -129,7 +129,7 @@ function normalizeHeader(value: string): string {
 		.replace(/[\s-]+/g, '_');
 }
 
-const FIELDS = {
+export const FIELDS = {
 	id: ['id', 'id_produto', 'product_id'],
 	name: ['nome', 'name'],
 	category: ['categoria', 'category'],

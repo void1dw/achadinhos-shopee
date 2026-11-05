@@ -208,8 +208,7 @@
 			items={visibleProducts}
 			total={totalProducts}
 			newIds={highlightIds}
-			unavailable={data.sheetsUnavailable}
-			stale={data.productsStale}
+			unavailable={data.productsUnavailable}
 			canClear={filters.dirty}
 			onclear={() => filters.clear()}
 			favoriteIds={validFavoriteIds}

@@ -13,10 +13,8 @@
 		total: number;
 		/** Ids que ganham a etiqueta "novo". */
 		newIds: Set<string>;
-		/** A planilha não carregou. */
+		/** O catálogo não carregou (D1 ausente ou com erro). */
 		unavailable: boolean;
-		/** A lista está em cache porque a planilha falhou na última atualização. */
-		stale: boolean;
 		/** Há filtros ligados (mostra o atalho "Limpar filtros"). */
 		canClear: boolean;
 		onclear: () => void;
@@ -45,7 +43,6 @@
 		total,
 		newIds,
 		unavailable,
-		stale,
 		canClear,
 		onclear,
 		favoriteIds,
@@ -164,12 +161,6 @@
 				{/if}
 			</div>
 		{:else}
-			{#if stale}
-				<p class="stale-notice" role="status">
-					Estamos mostrando a última lista carregada. Preços e disponibilidade podem ter mudado na
-					Shopee.
-				</p>
-			{/if}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4">
 				{#each items.slice(0, visible) as product, index (product.id)}
 					<ProductCard
@@ -309,16 +300,6 @@
 	.load-more:disabled {
 		cursor: progress;
 		opacity: 0.8;
-	}
-	.stale-notice {
-		margin-bottom: 0.9rem;
-		padding: 0.65rem 0.8rem;
-		border: 1px solid #f1d8a7;
-		border-radius: 12px;
-		background: #fff8e8;
-		color: #73521d;
-		font-size: 0.75rem;
-		line-height: 1.45;
 	}
 	.load-more {
 		position: relative;

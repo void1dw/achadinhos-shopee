@@ -58,11 +58,10 @@ export type Ga4Reports = Record<Ga4ReportSection, ReportRow[]> & {
 class Ga4SectionError extends Error {}
 
 export class Ga4ReportingError extends Error {
-	constructor(
-		message: string,
-		readonly status: number
-	) {
+	readonly status: number;
+	constructor(message: string, status: number) {
 		super(message);
+		this.status = status;
 		this.name = 'Ga4ReportingError';
 	}
 }
@@ -85,13 +84,17 @@ function decodePrivateKey(pem: string): ArrayBuffer {
 	return bytes.buffer;
 }
 
-async function createServiceAssertion(email: string, privateKeyPem: string): Promise<string> {
+export async function createServiceAssertion(
+	email: string,
+	privateKeyPem: string,
+	scope: string = DATA_API_SCOPE
+): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
 	const header = encodeBase64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
 	const payload = encodeBase64Url(
 		JSON.stringify({
 			iss: email,
-			scope: DATA_API_SCOPE,
+			scope,
 			aud: TOKEN_URL,
 			iat: now,
 			exp: now + 3600

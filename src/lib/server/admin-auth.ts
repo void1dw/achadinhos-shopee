@@ -51,6 +51,16 @@ export function isAdminAuthConfigured(env: AdminCredentials): boolean {
 	);
 }
 
+export async function isAdminSessionValid(
+	token: string | undefined,
+	env: AdminCredentials,
+	now = Date.now()
+): Promise<boolean> {
+	return (
+		isAdminAuthConfigured(env) && (await verifyAdminSession(token, env.ADMIN_SESSION_SECRET, now))
+	);
+}
+
 export function isSameOrigin(request: Request): boolean {
 	const origin = request.headers.get('origin');
 	return origin !== null && origin === new URL(request.url).origin;

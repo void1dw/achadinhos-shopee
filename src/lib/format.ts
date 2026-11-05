@@ -2,6 +2,21 @@ const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' 
 
 export const money = (value: number): string => brl.format(value);
 
+const commissionPercent = new Intl.NumberFormat('pt-BR', {
+	style: 'percent',
+	maximumFractionDigits: 2
+});
+
+/** Taxa de comissão da Shopee (fração decimal: "0.03" = 3%) para exibição; null se ausente ou inválida. */
+export function formatCommissionRate(value: string | number | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const text = typeof value === 'string' ? value.trim() : String(value);
+	if (!text) return null;
+	const rate = Number(text);
+	if (!Number.isFinite(rate) || rate < 0) return null;
+	return commissionPercent.format(rate);
+}
+
 /** Minúsculas, sem acento e sem espaços nas pontas ("Eletrônicos " -> "eletronicos"). */
 export function normalizeText(value: string): string {
 	return value

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import type { Ga4Realtime } from '../../lib/server/ga4-reporting';
 	import type { PageData } from './$types';
 
@@ -342,6 +343,44 @@
 				Abrir relatório completo
 				<span aria-hidden="true">↗</span>
 			</a>
+		</section>
+
+		<section class="mt-5 rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<div>
+					<p class="text-xs font-extrabold tracking-[0.18em] text-lia-orange uppercase">
+						Shopee Affiliate
+					</p>
+					<h2 class="mt-1 text-xl font-black text-lia-navy">Motor de garimpo — candidatos</h2>
+					<p class="mt-1 text-sm text-lia-muted">
+						Execute buscas manuais, revise candidatos e registre decisões internas.
+					</p>
+				</div>
+				<a
+					href={resolve('/admin/shopee/candidates')}
+					class="rounded-xl bg-lia-navy px-4 py-3 text-sm font-bold text-white transition hover:bg-lia-orange"
+				>
+					Abrir candidatos
+				</a>
+				<a
+					href={resolve('/admin/products/audit')}
+					class="rounded-xl bg-lia-navy px-4 py-3 text-sm font-bold text-white transition hover:bg-lia-orange"
+				>
+					Auditoria do catálogo
+				</a>
+				<a
+					href={resolve('/admin/products/publish')}
+					class="rounded-xl bg-lia-navy px-4 py-3 text-sm font-bold text-white transition hover:bg-lia-orange"
+				>
+					Publicar na planilha
+				</a>
+				<a
+					href={resolve('/admin/products/monitor')}
+					class="rounded-xl bg-lia-navy px-4 py-3 text-sm font-bold text-white transition hover:bg-lia-orange"
+				>
+					Monitoramento
+				</a>
+			</div>
 		</section>
 
 		<section class="live" aria-labelledby="live-heading">

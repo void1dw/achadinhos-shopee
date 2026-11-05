@@ -265,7 +265,6 @@
 				total={totalProducts}
 				{newIds}
 				unavailable={false}
-				stale={data.productsStale}
 				canClear={favoritesOnly}
 				onclear={() => (favoritesOnly = false)}
 				{favoriteIds}
