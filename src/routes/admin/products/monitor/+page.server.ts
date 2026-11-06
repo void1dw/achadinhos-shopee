@@ -93,8 +93,7 @@ export const actions: Actions = {
 				paused: form.get('paused') === 'on',
 				updatePrices: form.get('updatePrices') === 'on',
 				intervalHours: toInt(form.get('intervalHours')),
-				batchSize: toInt(form.get('batchSize')),
-				hourlyCallBudget: toInt(form.get('hourlyCallBudget'))
+				batchSize: toInt(form.get('batchSize'))
 			});
 			return { saved: true };
 		} catch (error) {

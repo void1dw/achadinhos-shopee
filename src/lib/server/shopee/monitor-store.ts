@@ -333,20 +333,6 @@ export function computeMonitorAlerts(input: {
 }): MonitorAlert[] {
 	const { settings, usage, lastRun, now } = input;
 	const alerts: MonitorAlert[] = [];
-	const budget = settings.hourlyCallBudget;
-	if (usage.callsLastHour >= budget) {
-		alerts.push({
-			level: 'critical',
-			code: 'BUDGET_EXHAUSTED',
-			message: `O orçamento de ${budget} chamadas por hora foi atingido (${usage.callsLastHour} na última hora). Novas execuções ficam bloqueadas.`
-		});
-	} else if (usage.callsLastHour >= budget * 0.8) {
-		alerts.push({
-			level: 'warning',
-			code: 'BUDGET_NEAR_LIMIT',
-			message: `O uso da última hora (${usage.callsLastHour}/${budget} chamadas) passou de 80% do orçamento.`
-		});
-	}
 	if (usage.rateLimitedLast24h > 0) {
 		alerts.push({
 			level: 'critical',

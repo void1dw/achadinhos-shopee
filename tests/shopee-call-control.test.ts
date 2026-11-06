@@ -279,45 +279,32 @@ test('controle D1: reservas atômicas, concorrência, contabilização e estatí
 
 		const used = await usedNow();
 		await db
-			.prepare('UPDATE monitor_settings SET hourly_call_budget = ? WHERE id = 1')
-			.bind(Math.max(used + 3, 1))
+			.prepare('UPDATE monitor_settings SET hourly_call_budget = 1 WHERE id = 1')
 			.run();
 
+		// Sem cota: todas as reservas passam e apenas registram a chamada.
 		const results = await Promise.all(Array.from({ length: 8 }, () => control.reserve()));
 		const granted = results.filter((result) => result.ok);
-		assert.equal(granted.length, 3);
-		assert.equal(await usedNow(), used + 3);
-		assert.equal(control.counters.reserved, 3);
-
-		const denied = await control.reserve();
-		assert.deepEqual(denied, { ok: false, reason: 'budget_exhausted' });
+		assert.equal(granted.length, 8);
+		assert.equal(await usedNow(), used + 8);
+		assert.equal(control.counters.reserved, 8);
 
 		const first = granted[0];
 		assert.ok(first?.ok);
 		await control.settle(first.id, { outcome: 'rate_limited', httpStatus: 429 });
-		const retry = control.forRetry();
-		assert.deepEqual(await retry.reserve(), { ok: false, reason: 'budget_exhausted' });
-		// Reserva consumida não é devolvida mesmo após timeout.
 		const second = granted[1];
 		assert.ok(second?.ok);
 		await control.settle(second.id, { outcome: 'timeout' });
-		assert.equal(await usedNow(), used + 3);
 
 		const usage = await getApiUsage(db, new Date(base));
 		assert.ok(usage.rateLimitedLast24h >= 1);
 		const stats = await getApiControlStats(db, new Date(base));
 		const mine = stats.bySource.find((item) => item.source === source);
-		assert.equal(mine?.calls, 3);
-		assert.ok(stats.reserveDeniedLast24h >= 2);
+		assert.equal(mine?.calls, 8);
 
-		// Orçamento ampliado: a retentativa passa a ser registrada como retry.
-		await db
-			.prepare('UPDATE monitor_settings SET hourly_call_budget = ? WHERE id = 1')
-			.bind(used + 10)
-			.run();
+		const retry = control.forRetry();
 		assert.equal((await retry.reserve()).ok, true);
 		assert.equal(control.counters.retries, 1);
-
 		// Falha do D1 impede a reserva.
 		const broken = createD1CallControl(
 			{

@@ -353,18 +353,17 @@ test('dois passos simultâneos não processam o mesmo produto duas vezes', async
 	});
 });
 
-test('orçamento esgotado preserva o lote e não marca nada como auditado', async () => {
+test('não há limite de chamadas: o lote avança até o fim', async () => {
 	await withDb(async (db) => {
 		await seed(db, 30);
-		await updateMonitorSettings(db, { paused: true, intervalHours: 12, batchSize: 20, hourlyCallBudget: 2 });
+		await updateMonitorSettings(db, { paused: true, intervalHours: 12, batchSize: 20, hourlyCallBudget: 1 });
 		const world = newWorld();
 		await startOrResumeBatch(db, new Date());
 		const first = await runBatchStep(db, credentials, deps(world));
 		assert.equal(first.state, 'progress');
 		const second = await runBatchStep(db, credentials, deps(world));
-		assert.equal(second.state, 'blocked');
-		assert.equal((await getOpenBatch(db))?.processed, 20);
-		assert.equal((await getAuditStats(db)).audited, 20);
+		assert.notEqual(second.state, 'blocked');
+		assert.equal((await getAuditStats(db)).audited, 30);
 	});
 });
 

@@ -59,7 +59,7 @@
 			<p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
 				{data.state === 'unavailable'
 					? 'O banco D1 não está disponível neste ambiente.'
-					: 'Não foi possível ler as tabelas do monitor. Verifique se as migrations até a 0006 foram aplicadas.'}
+					: 'Não foi possível ler as tabelas do monitor. Verifique se as migrations até a 0007 foram aplicadas.'}
 			</p>
 		{:else}
 			{#if form?.message}
@@ -188,11 +188,11 @@
 				</p>
 			</section>
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
-				<h2 class="text-xl font-black text-lia-navy">Consumo da API Shopee</h2>
+				<h2 class="text-xl font-black text-lia-navy">Chamadas à API Shopee</h2>
 				<p class="mt-2 text-sm text-lia-muted">
-					O orçamento é uma proteção interna configurável, não um limite oficial informado pela
-					Shopee. Cada requisição HTTP reserva uma chamada (um lote com vários produtos conta uma
-					vez; cada retentativa conta como nova chamada).
+					Apenas informativo: a API de afiliados da Shopee não tem cota nem crédito de requisições,
+					e o painel não bloqueia nenhuma execução por quantidade de chamadas. Se a Shopee
+					devolver rate limit de verdade, a execução para e aparece nos alertas.
 				</p>
 				<dl class="mt-4 grid gap-3 text-sm sm:grid-cols-3">
 					<div>
@@ -200,32 +200,12 @@
 						<dd>{data.usage.callsLastHour}</dd>
 					</div>
 					<div>
-						<dt class="font-bold text-lia-navy">Orçamento por hora</dt>
-						<dd>{data.settings.hourlyCallBudget}</dd>
-					</div>
-					<div>
-						<dt class="font-bold text-lia-navy">Saldo disponível</dt>
-						<dd>{Math.max(0, data.settings.hourlyCallBudget - data.usage.callsLastHour)}</dd>
-					</div>
-					<div>
 						<dt class="font-bold text-lia-navy">Retentativas (1h)</dt>
 						<dd>{data.controlStats.retriesLastHour}</dd>
 					</div>
 					<div>
-						<dt class="font-bold text-lia-navy">Rate limits (24h)</dt>
+						<dt class="font-bold text-lia-navy">Rate limits da Shopee (24h)</dt>
 						<dd>{data.usage.rateLimitedLast24h}</dd>
-					</div>
-					<div>
-						<dt class="font-bold text-lia-navy">Reservas negadas (24h)</dt>
-						<dd>{data.controlStats.reserveDeniedLast24h}</dd>
-					</div>
-					<div>
-						<dt class="font-bold text-lia-navy">Falhas de reserva (24h)</dt>
-						<dd>{data.controlStats.reserveFailedLast24h}</dd>
-					</div>
-					<div>
-						<dt class="font-bold text-lia-navy">Falhas de contabilização (24h)</dt>
-						<dd>{data.controlStats.settleFailedLast24h}</dd>
 					</div>
 				</dl>
 				<h3 class="mt-4 text-sm font-black text-lia-navy">Consumo por origem (última hora)</h3>
@@ -243,11 +223,9 @@
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 				<h2 class="text-xl font-black text-lia-navy">Rotina e limites</h2>
 				<p class="mt-2 text-sm text-lia-muted">
-					Três limites distintos: o <strong>lote</strong> é quantos produtos entram em cada
-					execução; o <strong>intervalo</strong> é de quanto em quanto tempo cada produto deve ser
-					revisitado; o <strong>orçamento</strong> é o teto de requisições HTTP à API por hora (um
-					lote de até 10 produtos consome 1 chamada; links curtos são resolvidos por HTTP comum e não
-					consomem a API).
+					Dois ajustes: o <strong>lote</strong> é quantos produtos entram em cada execução (a cada {data.cronMinutes}
+					min) e o <strong>intervalo</strong> é de quanto em quanto tempo cada produto deve ser
+					revisitado. Não há limite de requisições à Shopee configurável aqui.
 				</p>
 				<form method="POST" action="?/settings" use:enhance class="mt-4 grid gap-3 sm:grid-cols-4">
 					<label class="flex items-center gap-2 text-sm font-bold text-lia-navy">
@@ -283,17 +261,6 @@
 							min="1"
 							max="50"
 							value={data.settings.batchSize}
-							class="mt-1 w-full rounded-xl border border-lia-line px-3 py-2"
-						/></label
-					>
-					<label class="text-sm font-bold text-lia-navy"
-						>Chamadas de API por hora
-						<input
-							name="hourlyCallBudget"
-							type="number"
-							min="1"
-							max="2000"
-							value={data.settings.hourlyCallBudget}
 							class="mt-1 w-full rounded-xl border border-lia-line px-3 py-2"
 						/></label
 					>

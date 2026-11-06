@@ -8,7 +8,6 @@ import {
 } from './client';
 import {
 	finishMonitorRun,
-	getApiUsage,
 	getAudits,
 	getLatestObservations,
 	getMonitorSettings,
@@ -63,7 +62,7 @@ export type CatalogAuditOptions = {
 	discoveryLimit?: number;
 	/**
 	 * Alvos explícitos (lote de auditoria incremental). Dispensam a fila e a busca por nome; o
-	 * chamador define o tamanho, que continua sujeito ao orçamento e ao teto de resoluções.
+	 * chamador define o tamanho, que continua sujeito ao teto de resoluções.
 	 */
 	targets?: AuditTarget[];
 };
@@ -295,14 +294,6 @@ export async function runCatalogAudit(
 	const clock = deps.now ?? (() => new Date());
 	const startedAt = clock();
 	const settings = await getMonitorSettings(db);
-	const usage = await getApiUsage(db, startedAt);
-	if (settings.hourlyCallBudget - usage.callsLastHour <= 0) {
-		return {
-			state: 'blocked',
-			code: 'BUDGET_EXHAUSTED',
-			message: `O orçamento de ${settings.hourlyCallBudget} chamadas por hora foi atingido. Aguarde para executar novamente.`
-		};
-	}
 
 	const limit = Math.max(
 		0,

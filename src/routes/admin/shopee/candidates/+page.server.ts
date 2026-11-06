@@ -22,7 +22,6 @@ import {
 	type DiscoveryFilterInput
 } from '../../../../lib/server/shopee/discovery-filters';
 import { createD1CallControl } from '../../../../lib/server/shopee/call-control';
-import { getApiUsage, getMonitorSettings } from '../../../../lib/server/shopee/monitor-store';
 
 const responseHeaders = {
 	'cache-control': 'private, no-store',
@@ -129,17 +128,6 @@ export const actions: Actions = {
 					return typeof value === 'string' ? value : null;
 				})
 			);
-
-			// Orçamento autoimposto (configurável no monitor); não é um limite oficial da Shopee.
-			const [settings, usage] = await Promise.all([
-				getMonitorSettings(env.CANDIDATES_DB),
-				getApiUsage(env.CANDIDATES_DB)
-			]);
-			if (usage.callsLastHour + pages > settings.hourlyCallBudget) {
-				return fail(429, {
-					message: `Orçamento de chamadas por hora insuficiente (${usage.callsLastHour}/${settings.hourlyCallBudget} usadas). Aguarde ou reduza as páginas.`
-				});
-			}
 
 			const summary = await collectShopeeCandidates(
 				env.CANDIDATES_DB,

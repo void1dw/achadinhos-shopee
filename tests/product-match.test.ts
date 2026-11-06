@@ -155,8 +155,7 @@ test('alertas de orçamento, rate limit, falha e pausa', () => {
 		computeMonitorAlerts({ settings: s, usage: u, lastRun: last, now }).map((a) => a.code);
 
 	assert.deepEqual(codes(usage(10), run()), []);
-	assert.deepEqual(codes(usage(80), run()), ['BUDGET_NEAR_LIMIT']);
-	assert.deepEqual(codes(usage(100), run()), ['BUDGET_EXHAUSTED']);
+	assert.deepEqual(codes(usage(500), run()), []);
 	assert.ok(codes(usage(0, 1), run()).includes('RATE_LIMIT_RECENT'));
 	assert.ok(codes(usage(0), run({ status: 'failed' })).includes('LAST_RUN_PROBLEM'));
 	assert.ok(codes(usage(0), null).includes('ROUTINE_STALE'));

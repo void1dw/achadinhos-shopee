@@ -260,7 +260,7 @@
 					em "Produtos com falha" e não são marcadas como correspondência incerta.
 				</p>
 				<dl class="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-8">
-					{#each [['Produtos', data.counts.totalProducts], ['Identificados', data.coverage.identified], ['Pendentes de identificação', data.coverage.pendingIdentification], ['Com falha técnica', data.coverage.failing], ['Auditados', data.counts.audited], ...data.statuses.map( (s) => [data.statusLabels[s], data.counts.byStatus[s]] )] as [label, value] (label)}
+					{#each data.statuses.map( (s) => [data.statusLabels[s], data.counts.byStatus[s]] ) as [label, value] (label)}
 						<div class="rounded-2xl bg-lia-cream p-3">
 							<dt class="text-xs font-semibold text-lia-muted">{label}</dt>
 							<dd class="text-2xl font-black text-lia-navy">{value}</dd>
@@ -269,7 +269,7 @@
 				</dl>
 				<p class="mt-3 text-xs text-lia-muted">
 					Última verificação: {when(data.counts.lastVerifiedAt)} · Chamadas de API na última hora: {data
-						.budget.used}/{data.budget.limit} (links curtos não consomem este orçamento)
+						.apiCallsLastHour} (sem limite: a API de afiliados não tem cota)
 				</p>
 
 				<form

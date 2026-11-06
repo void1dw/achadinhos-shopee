@@ -106,7 +106,7 @@ export const load: PageServerLoad = async ({ cookies, request, setHeaders, url }
 			matchLabels: MATCH_LEVEL_LABELS,
 			statuses: [...AUDIT_STATUSES],
 			shopeeConfigured: Boolean(env.SHOPEE_APP_ID && env.SHOPEE_APP_SECRET),
-			budget: { used: usage.callsLastHour, limit: settings.hourlyCallBudget },
+			apiCallsLastHour: usage.callsLastHour,
 			batchSize: settings.batchSize
 		};
 	} catch (error) {
