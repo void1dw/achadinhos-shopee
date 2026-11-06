@@ -178,3 +178,124 @@ test('classifica timeout e falha de transporte', async () => {
 		code: 'request_failed'
 	});
 });
+
+test('segue a cadeia s.shopee.com.br → shope.ee → shopee.com.br', async () => {
+	const { fetcher, urls, inits } = sequence(
+		redirect('https://shope.ee/abc123?token=x', 301),
+		redirect('https://shopee.com.br/opaanlp/123456/789012?utm=1', 301)
+	);
+	assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher }), {
+		ok: true,
+		ids: { shopId: '123456', itemId: '789012' }
+	});
+	assert.deepEqual(urls, ['https://s.shopee.com.br/a', 'https://shope.ee/abc123?token=x']);
+	assert.ok(inits.every((init) => init?.redirect === 'manual'));
+});
+
+test('não extrai IDs de shope.ee e rejeita intermediário que sai do domínio', async () => {
+	const ids = sequence(redirect('https://shope.ee/opaanlp/11/22'), new Response(null, { status: 200 }));
+	assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher: ids.fetcher }), {
+		ok: false,
+		code: 'ids_not_found'
+	});
+	for (const location of [
+		'https://evil.example/opaanlp/11/22?token=segredo',
+		'http://shopee.com.br/opaanlp/11/22',
+		'https://shopee.com.br:8443/opaanlp/11/22',
+		'https://user:pw@shopee.com.br/opaanlp/11/22',
+		'/opaanlp/11/22',
+		'https://s.shopee.com.br/opaanlp/11/22'
+	]) {
+		const { fetcher } = sequence(redirect('https://shope.ee/x'), redirect(location));
+		const result = await resolveShortLink('https://s.shopee.com.br/a', { fetcher });
+		assert.equal(!result.ok && result.code, 'invalid_redirect');
+		assert.ok(!JSON.stringify(result).includes('segredo'));
+	}
+});
+
+test('cadeia com destino final sem IDs retorna ids_not_found', async () => {
+	const { fetcher } = sequence(
+		redirect('https://shope.ee/x'),
+		redirect('https://shopee.com.br/universal-link/x')
+	);
+	assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher }), {
+		ok: false,
+		code: 'ids_not_found'
+	});
+});
+
+test('limita redirecionamentos: shope.ee → shope.ee não é seguido', async () => {
+	const { fetcher, urls } = sequence(
+		redirect('https://shope.ee/a'),
+		redirect('https://shope.ee/b'),
+		redirect('https://shopee.com.br/opaanlp/11/22')
+	);
+	const result = await resolveShortLink('https://s.shopee.com.br/a', { fetcher });
+	assert.equal(!result.ok && result.code, 'invalid_redirect');
+	assert.equal(urls.length, 2);
+});
+
+test('o intermediário só é aceito no primeiro salto e falhas dele são classificadas', async () => {
+	const down = sequence(redirect('https://shope.ee/a'), new Response(null, { status: 403 }));
+	assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher: down.fetcher }), {
+		ok: false,
+		code: 'http_403'
+	});
+	const noLoc = sequence(redirect('https://shope.ee/a'), new Response(null, { status: 302 }));
+	assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher: noLoc.fetcher }), {
+		ok: false,
+		code: 'invalid_redirect',
+		detail: 'sem_location'
+	});
+});
+
+test('o timeout vale para a resolução inteira, não por salto', async () => {
+	let calls = 0;
+	const slow = ((_url: unknown, init?: RequestInit) => {
+		calls += 1;
+		if (calls === 1) {
+			return new Promise((resolve) => setTimeout(() => resolve(redirect('https://shope.ee/a')), 30));
+		}
+		return new Promise((_resolve, reject) => {
+			init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+		});
+	}) as typeof fetch;
+	const started = Date.now();
+	assert.deepEqual(
+		await resolveShortLink('https://s.shopee.com.br/a', { fetcher: slow, timeoutMs: 60 }),
+		{ ok: false, code: 'timeout' }
+	);
+	assert.equal(calls, 2);
+	assert.ok(Date.now() - started < 200);
+});
+
+test('cancela os corpos das respostas', async () => {
+	let cancelled = 0;
+	const withBody = (location: string) => {
+		const response = redirect(location, 301);
+		Object.defineProperty(response, 'body', {
+			value: { cancel: async () => void (cancelled += 1) }
+		});
+		return response;
+	};
+	const { fetcher } = sequence(
+		withBody('https://shope.ee/a'),
+		withBody('https://shopee.com.br/opaanlp/11/22')
+	);
+	assert.equal((await resolveShortLink('https://s.shopee.com.br/a', { fetcher })).ok, true);
+	assert.equal(cancelled, 2);
+});
+test('fetcher que ignora o AbortSignal e responde após o timeout resulta em timeout', async () => {
+	let calls = 0;
+	const late = (() => {
+		calls += 1;
+		return new Promise((resolve) =>
+			setTimeout(() => resolve(redirect('https://shopee.com.br/opaanlp/11/22', 301)), 50)
+		);
+	}) as typeof fetch;
+	assert.deepEqual(
+		await resolveShortLink('https://s.shopee.com.br/a', { fetcher: late, timeoutMs: 10 }),
+		{ ok: false, code: 'timeout' }
+	);
+	assert.equal(calls, 1);
+});
