@@ -11,6 +11,7 @@ export type MonitorSettings = {
 	intervalHours: number;
 	batchSize: number;
 	hourlyCallBudget: number;
+	updatePrices: boolean;
 	updatedAt: string;
 };
 
@@ -19,6 +20,7 @@ export const DEFAULT_MONITOR_SETTINGS: MonitorSettings = {
 	intervalHours: 12,
 	batchSize: 20,
 	hourlyCallBudget: 100,
+	updatePrices: false,
 	updatedAt: ''
 };
 
@@ -44,6 +46,10 @@ export function validateMonitorSettings(input: MonitorSettingsInput): MonitorSet
 		if (typeof input.paused !== 'boolean') throw new MonitorSettingsError('Estado inválido.');
 		result.paused = input.paused;
 	}
+	if (input.updatePrices !== undefined) {
+		if (typeof input.updatePrices !== 'boolean') throw new MonitorSettingsError('Estado inválido.');
+		result.updatePrices = input.updatePrices;
+	}
 	if (input.intervalHours !== undefined) {
 		result.intervalHours = boundedInteger(input.intervalHours, 'O intervalo (horas)', 1, 168);
 	}
@@ -66,13 +72,14 @@ type SettingsRow = {
 	interval_hours: number;
 	batch_size: number;
 	hourly_call_budget: number;
+	update_prices: number;
 	updated_at: string;
 };
 
 export async function getMonitorSettings(db: D1Database): Promise<MonitorSettings> {
 	const row = await db
 		.prepare(
-			'SELECT paused, interval_hours, batch_size, hourly_call_budget, updated_at FROM monitor_settings WHERE id = 1'
+			'SELECT paused, interval_hours, batch_size, hourly_call_budget, update_prices, updated_at FROM monitor_settings WHERE id = 1'
 		)
 		.first<SettingsRow>();
 	if (!row) return DEFAULT_MONITOR_SETTINGS;
@@ -81,6 +88,7 @@ export async function getMonitorSettings(db: D1Database): Promise<MonitorSetting
 		intervalHours: row.interval_hours,
 		batchSize: row.batch_size,
 		hourlyCallBudget: row.hourly_call_budget,
+		updatePrices: row.update_prices === 1,
 		updatedAt: row.updated_at
 	};
 }
@@ -94,17 +102,19 @@ export async function updateMonitorSettings(
 	const next = { ...current, ...values };
 	await db
 		.prepare(
-			`INSERT INTO monitor_settings (id, paused, interval_hours, batch_size, hourly_call_budget, updated_at)
-			VALUES (1, ?, ?, ?, ?, ?)
+			`INSERT INTO monitor_settings (id, paused, interval_hours, batch_size, hourly_call_budget, update_prices, updated_at)
+			VALUES (1, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET paused = excluded.paused,
 				interval_hours = excluded.interval_hours, batch_size = excluded.batch_size,
-				hourly_call_budget = excluded.hourly_call_budget, updated_at = excluded.updated_at`
+				hourly_call_budget = excluded.hourly_call_budget,
+				update_prices = excluded.update_prices, updated_at = excluded.updated_at`
 		)
 		.bind(
 			next.paused ? 1 : 0,
 			next.intervalHours,
 			next.batchSize,
 			next.hourlyCallBudget,
+			next.updatePrices ? 1 : 0,
 			new Date().toISOString()
 		)
 		.run();
@@ -634,63 +644,6 @@ function toTargets(rows: readonly TargetRow[]): AuditTarget[] {
 	return rows.map((row) => ({ product: toProduct(row), itemId: row.item_id, shopId: row.shop_id }));
 }
 
-/** Produtos vinculados (itemId/shopId) menos recentemente verificados primeiro. */
-export async function selectLinkedTargets(
-	db: D1Database,
-	cutoff: Date,
-	limit: number
-): Promise<AuditTarget[]> {
-	if (limit <= 0) return [];
-	const result = await db
-		.prepare(
-			`SELECT p.* FROM products p LEFT JOIN product_audits a ON a.product_id = p.id
-			WHERE p.item_id IS NOT NULL AND p.shop_id IS NOT NULL
-				AND (a.verified_at IS NULL OR a.verified_at < ?)
-			ORDER BY (a.verified_at IS NOT NULL), a.verified_at ASC, p.id ASC LIMIT ?`
-		)
-		.bind(cutoff.toISOString(), limit)
-		.all<TargetRow>();
-	return toTargets(result.results);
-}
-
-/** Produtos sem vínculo cuja URL completa pode conter itemId/shopId. */
-export async function selectUrlTargets(
-	db: D1Database,
-	cutoff: Date,
-	limit: number
-): Promise<AuditTarget[]> {
-	if (limit <= 0) return [];
-	const result = await db
-		.prepare(
-			`SELECT p.* FROM products p LEFT JOIN product_audits a ON a.product_id = p.id
-			WHERE p.item_id IS NULL AND (p.url LIKE ? OR p.url LIKE ?)
-				AND (a.verified_at IS NULL OR a.verified_at < ?)
-			ORDER BY (a.verified_at IS NOT NULL), a.verified_at ASC, p.id ASC LIMIT ?`
-		)
-		.bind(...IDENTIFIABLE_URL_LIKE, cutoff.toISOString(), limit)
-		.all<TargetRow>();
-	return toTargets(result.results);
-}
-
-/** Produtos sem vínculo cuja URL é um link curto s.shopee.com.br (candidatos à resolução). */
-export async function selectShortLinkTargets(
-	db: D1Database,
-	cutoff: Date,
-	limit: number
-): Promise<AuditTarget[]> {
-	if (limit <= 0) return [];
-	const result = await db
-		.prepare(
-			`SELECT p.* FROM products p LEFT JOIN product_audits a ON a.product_id = p.id
-			WHERE p.item_id IS NULL AND p.shop_id IS NULL AND p.url LIKE 'https://s.shopee.com.br/%'
-				AND (a.verified_at IS NULL OR a.verified_at < ?)
-			ORDER BY (a.verified_at IS NOT NULL), a.verified_at ASC, p.id ASC LIMIT ?`
-		)
-		.bind(cutoff.toISOString(), limit)
-		.all<TargetRow>();
-	return toTargets(result.results);
-}
-
 /** Produtos sem nenhum identificador: candidatos à descoberta por nome. */
 export async function selectDiscoveryTargets(
 	db: D1Database,
@@ -702,6 +655,7 @@ export async function selectDiscoveryTargets(
 		.prepare(
 			`SELECT p.* FROM products p LEFT JOIN product_audits a ON a.product_id = p.id
 			WHERE p.item_id IS NULL AND p.url NOT LIKE ? AND p.url NOT LIKE ?
+				AND p.url NOT LIKE 'https://s.shopee.com.br/%'
 				AND (a.verified_at IS NULL OR a.verified_at < ?)
 			ORDER BY (a.verified_at IS NOT NULL), a.verified_at ASC, p.id ASC LIMIT ?`
 		)

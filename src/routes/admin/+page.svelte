@@ -369,10 +369,10 @@
 					Auditoria do catálogo
 				</a>
 				<a
-					href={resolve('/admin/products/publish')}
+					href={resolve('/admin/products/add')}
 					class="rounded-xl bg-lia-navy px-4 py-3 text-sm font-bold text-white transition hover:bg-lia-orange"
 				>
-					Publicar na planilha
+					Adicionar ao catálogo
 				</a>
 				<a
 					href={resolve('/admin/products/monitor')}

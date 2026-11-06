@@ -17,6 +17,14 @@ import {
 	MonitorSettingsError,
 	updateMonitorSettings
 } from '../../../../lib/server/shopee/monitor-store';
+import {
+	countFailuresByCode,
+	getCoverageStats,
+	getSchedulerHeartbeat,
+	listFailingProducts,
+	MONITOR_CRON_MINUTES,
+	requeueFailedProducts
+} from '../../../../lib/server/shopee/monitor-queue';
 
 const responseHeaders = {
 	'cache-control': 'private, no-store',
@@ -38,15 +46,34 @@ export const load: PageServerLoad = async ({ cookies, request, setHeaders }) => 
 	if (!db) return { state: 'unavailable' as const };
 	try {
 		const now = new Date();
-		const [settings, usage, runs, events, controlStats] = await Promise.all([
-			getMonitorSettings(db),
-			getApiUsage(db, now),
-			listMonitorRuns(db, 20),
-			listMonitorEvents(db, 50),
-			getApiControlStats(db, now)
-		]);
+		const [settings, usage, runs, events, controlStats, coverage, failing, failureCodes, heartbeat] =
+			await Promise.all([
+				getMonitorSettings(db),
+				getApiUsage(db, now),
+				listMonitorRuns(db, 20),
+				listMonitorEvents(db, 50),
+				getApiControlStats(db, now),
+				getCoverageStats(db, now),
+				listFailingProducts(db, 25),
+				countFailuresByCode(db),
+				getSchedulerHeartbeat(db)
+			]);
 		const alerts = computeMonitorAlerts({ settings, usage, lastRun: runs[0] ?? null, now });
-		return { state: 'ready' as const, settings, usage, controlStats, runs, events, alerts };
+		return {
+			state: 'ready' as const,
+			settings,
+			usage,
+			controlStats,
+			runs,
+			events,
+			alerts,
+			coverage,
+			failing,
+			failureCodes,
+			heartbeat,
+			cronMinutes: MONITOR_CRON_MINUTES,
+			now: now.toISOString()
+		};
 	} catch (error) {
 		console.error('Falha ao carregar monitor', error instanceof Error ? error.message : 'erro');
 		return { state: 'db-error' as const };
@@ -64,6 +91,7 @@ export const actions: Actions = {
 		try {
 			await updateMonitorSettings(db, {
 				paused: form.get('paused') === 'on',
+				updatePrices: form.get('updatePrices') === 'on',
 				intervalHours: toInt(form.get('intervalHours')),
 				batchSize: toInt(form.get('batchSize')),
 				hourlyCallBudget: toInt(form.get('hourlyCallBudget'))
@@ -79,6 +107,21 @@ export const actions: Actions = {
 		}
 	},
 
+	requeue: async ({ cookies, request, setHeaders }) => {
+		setHeaders(responseHeaders);
+		if (!(await authenticated(cookies))) return fail(401, { message: 'Sessão expirada.' });
+		if (!isSameOrigin(request)) return fail(403, { message: 'Origem não permitida.' });
+		const db = env.CANDIDATES_DB;
+		if (!db) return fail(503, { message: 'Banco indisponível.' });
+		try {
+			const requeued = await requeueFailedProducts(db, new Date());
+			return { requeued };
+		} catch (error) {
+			console.error('Falha ao reenfileirar', error instanceof Error ? error.message : 'erro');
+			return fail(500, { message: 'Não foi possível reenfileirar as falhas.' });
+		}
+	},
+
 	run: async ({ cookies, request, setHeaders }) => {
 		setHeaders(responseHeaders);
 		if (!(await authenticated(cookies))) return fail(401, { message: 'Sessão expirada.' });
@@ -89,19 +132,25 @@ export const actions: Actions = {
 			return fail(503, { message: 'Credenciais da Shopee não configuradas.' });
 		}
 		try {
-			const settings = await getMonitorSettings(db);
-			const outcome = await runCatalogAudit(db, env, {
-				trigger: 'manual',
-				linkedLimit: settings.batchSize,
-				discoveryLimit: 0,
-				force: false
-			});
+			const outcome = await runCatalogAudit(db, env, { trigger: 'manual' });
 			if (outcome.state === 'busy')
 				return fail(409, { message: 'Já existe uma execução em andamento.' });
 			if (outcome.state === 'blocked') return fail(429, { message: outcome.message });
-			if (outcome.state === 'skipped') return fail(409, { message: 'Execução ignorada.' });
+			if (outcome.state === 'skipped') {
+				return fail(409, {
+					message:
+						'Nenhum produto vencido na fila. Todos os produtos elegíveis estão em dia; nada foi consultado.'
+				});
+			}
 			return {
-				ran: { status: outcome.status, errorMessage: outcome.errorMessage }
+				ran: {
+					status: outcome.status,
+					errorMessage: outcome.errorMessage,
+					checked: outcome.totals.products_checked,
+					failures: outcome.totals.failures,
+					apiCalls: outcome.totals.api_calls,
+					priceUpdates: outcome.priceUpdates
+				}
 			};
 		} catch (error) {
 			console.error('Falha na execução manual', error instanceof Error ? error.message : 'erro');

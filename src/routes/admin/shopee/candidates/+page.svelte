@@ -135,7 +135,10 @@
 			<h2 class="text-xl font-black text-lia-navy">Coleta manual</h2>
 			<p class="mt-2 text-sm leading-6 text-lia-muted">
 				A coleta só começa ao enviar este formulário. Limites por execução: até 3 páginas e 20
-				produtos por página. Aprovar candidatos altera somente o estado interno; nada é publicado.
+				produtos por página. Aprovar candidatos registra a decisão; em seguida, use <a
+					href={resolve('/admin/products/add')}
+					class="font-bold text-lia-orange hover:underline">Adicionar ao catálogo</a
+				> para revalidar e incluir os aprovados no D1.
 			</p>
 			<form method="POST" action="?/collect" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 				<label class="grid gap-1 text-sm font-semibold text-lia-ink">

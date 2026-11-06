@@ -1,10 +1,114 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { deserialize, enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let running = $state(false);
+	type BatchView = {
+		id: number;
+		number: number;
+		requested: number;
+		selected: number;
+		processed: number;
+		failed: number;
+		pending: number;
+		stalled: boolean;
+	};
+	let batchBusy = $state(false);
+	let liveBatch = $state<BatchView | null>(null);
+	let batchNotice = $state('');
+	const batch = $derived(liveBatch ?? (data.state === 'ready' ? data.openBatch : null));
+
+	async function post(action: string, extra: Record<string, string> = {}) {
+		const body = new FormData();
+		for (const [key, value] of Object.entries(extra)) body.set(key, value);
+		const response = await fetch(action, {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		return deserialize(await response.text());
+	}
+
+	// Cada bloco é uma requisição curta; o estado fica no D1, então fechar a aba apenas pausa o lote.
+	async function runBatch(starting: boolean, resume = false) {
+		batchBusy = true;
+		batchNotice = '';
+		try {
+			if (starting) {
+				const started = await post('?/startBatch');
+				if (started.type !== 'success') {
+					batchNotice =
+						(started.type === 'failure' && (started.data?.message as string)) ||
+						'Não foi possível iniciar o lote.';
+					return;
+				}
+				const step = started.data?.batchStep as { state: string; batch: BatchView | null };
+				if (step.state === 'empty') {
+					batchNotice = 'Todo o catálogo já foi auditado: não há produtos pendentes.';
+					return;
+				}
+				liveBatch = step.batch;
+			}
+			let first = resume;
+			for (let guard = 0; guard < 200; guard += 1) {
+				const result = await post('?/step', first ? { resume: '1' } : {});
+				first = false;
+				if (result.type !== 'success') {
+					batchNotice =
+						(result.type === 'failure' && (result.data?.message as string)) ||
+						'Falha ao processar o bloco. O lote foi preservado: use "Retomar lote".';
+					return;
+				}
+				const step = result.data?.batchStep as {
+					state: string;
+					batch: BatchView | null;
+					message: string | null;
+				};
+				if (step.batch) liveBatch = step.batch;
+				if (step.state === 'finished') {
+					batchNotice = 'Lote concluído.';
+					liveBatch = null;
+					break;
+				}
+				if (step.state === 'blocked') {
+					batchNotice = `${step.message ?? 'Execução bloqueada.'} O lote foi preservado: retome depois.`;
+					break;
+				}
+				if (step.state === 'stalled') {
+					batchNotice =
+						'Vários blocos seguidos não tiveram nenhum sucesso. Lote pausado para não sobrecarregar a Shopee; veja os motivos em "Produtos com falha" e use "Retomar lote".';
+					break;
+				}
+				if (step.state === 'busy') {
+					batchNotice = 'Outra verificação está em andamento. Aguarde e use "Retomar lote".';
+					break;
+				}
+				if (step.state === 'none') {
+					liveBatch = null;
+					break;
+				}
+			}
+		} finally {
+			batchBusy = false;
+			await invalidateAll();
+			if (!liveBatch || liveBatch.pending === 0) liveBatch = null;
+		}
+	}
+
+	async function cancelOpenBatch() {
+		batchBusy = true;
+		try {
+			await post('?/cancelBatch');
+			liveBatch = null;
+			batchNotice = 'Lote cancelado. Os produtos não processados voltam a ficar pendentes.';
+		} finally {
+			batchBusy = false;
+			await invalidateAll();
+		}
+	}
 
 	const pageHref = (page: number) =>
 		`${resolve('/admin/products/audit')}?status=${data.state === 'ready' ? data.filters.status : ''}&q=${encodeURIComponent(data.state === 'ready' ? data.filters.q : '')}&page=${page}`;
@@ -50,18 +154,113 @@
 			</p>
 		{:else if data.state === 'db-error'}
 			<p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
-				Não foi possível ler as tabelas de auditoria. Verifique se a migration 0004 foi aplicada.
+				Não foi possível ler as tabelas de auditoria. 				Verifique se as migrations até a 0007 foram aplicadas.
 			</p>
 		{:else}
-			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+							{@const stats = data.auditStats}
+							{@const nextSize = Math.min(data.maxBatchSize, stats.selectable)}
+							<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+								<h2 class="text-xl font-black text-lia-navy">Primeira auditoria do catálogo</h2>
+								<p class="mt-2 text-sm leading-6 text-lia-muted">
+									Cada solicitação audita, no máximo, {data.maxBatchSize} produtos que ainda não tiveram uma
+									auditoria concluída; produtos já auditados nunca entram para completar o lote. Falhas
+									técnicas não contam como auditado e são tentadas de novo (até 3 vezes). A auditoria só
+									verifica e vincula: não publica, não altera preços, não troca links de afiliado e não
+									religa o monitoramento.
+								</p>
+								<div class="mt-4 h-3 overflow-hidden rounded-full bg-lia-cream" aria-hidden="true">
+									<div class="h-full bg-lia-orange" style:width="{stats.percent}%"></div>
+								</div>
+								<p class="mt-1 text-sm font-semibold text-lia-navy">
+									{stats.audited} de {stats.total} auditados ({stats.percent.toLocaleString('pt-BR')}%) ·
+									faltam {stats.neverAudited}
+								</p>
+								<dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-5">
+									{#each [['Total no catálogo', stats.total], ['Já auditados', stats.audited], ['Nunca auditados', stats.neverAudited], ['Em processamento', batch ? batch.pending : stats.processing], ['Com falha técnica', stats.technicalFailures], ['Encontrados e vinculados', stats.linked], ['Não encontrados na Shopee', stats.notFound], ['Sem identificador utilizável', stats.noIdentifier], ['Tentativas esgotadas', stats.exhausted]] as [label, value] (label)}
+										<div class="rounded-2xl bg-lia-cream p-3">
+											<dt class="text-xs font-semibold text-lia-muted">{label}</dt>
+											<dd class="text-2xl font-black text-lia-navy">{value}</dd>
+										</div>
+									{/each}
+								</dl>
+
+								{#if batch}
+									<div class="mt-5 rounded-2xl bg-lia-cream p-4 text-sm text-lia-ink" role="status">
+										<strong>Lote {batch.number} — {batch.processed} de {batch.selected} processados</strong>
+										{#if batch.failed > 0}<span> · {batch.failed} com falha técnica</span>{/if}
+										<div class="mt-2 h-2 overflow-hidden rounded-full bg-white" aria-hidden="true">
+											<div
+												class="h-full bg-lia-navy"
+												style:width="{batch.selected ? (batch.processed / batch.selected) * 100 : 0}%"
+											></div>
+										</div>
+										<div class="mt-3 flex flex-wrap gap-3">
+											{#if !batchBusy}
+												<button
+													type="button"
+													onclick={() => runBatch(false, true)}
+													disabled={!data.shopeeConfigured}
+													class="rounded-xl bg-lia-orange px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+													>Retomar lote</button
+												>
+												<button
+													type="button"
+													onclick={cancelOpenBatch}
+													class="rounded-xl border border-lia-line bg-white px-4 py-2 text-sm font-bold text-lia-navy"
+													>Cancelar lote</button
+												>
+											{:else}
+												<span>Processando em blocos de 20… mantenha a página aberta ou retome depois.</span>
+											{/if}
+										</div>
+									</div>
+								{:else if stats.selectable > 0}
+									<button
+										type="button"
+										onclick={() => runBatch(true)}
+										disabled={batchBusy || !data.shopeeConfigured}
+										class="mt-5 rounded-xl bg-lia-orange px-5 py-3 text-sm font-black text-white hover:brightness-95 disabled:opacity-60"
+									>
+										{#if nextSize >= data.maxBatchSize}
+											Auditar próximos {data.maxBatchSize.toLocaleString('pt-BR')} produtos não auditados
+										{:else}
+											Auditar os {nextSize} produtos restantes não auditados
+										{/if}
+									</button>
+								{:else if stats.neverAudited === 0}
+									<p class="mt-5 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800" role="status">
+										Todo o catálogo já foi auditado: a primeira auditoria está concluída.
+									</p>
+								{:else}
+									<p class="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="status">
+										Restam {stats.neverAudited} produtos não auditados, mas nenhum pode ser selecionado agora:
+										{stats.noIdentifier} sem identificador utilizável e {stats.exhausted} com tentativas
+										esgotadas.
+									</p>
+								{/if}
+								{#if stats.exhausted > 0 && !batch}
+									<form method="POST" action="?/releaseExhausted" class="mt-3" use:enhance>
+										<button class="text-sm font-bold text-lia-orange hover:underline"
+											>Liberar {stats.exhausted} produtos com tentativas esgotadas para nova rodada</button
+										>
+									</form>
+								{/if}
+								{#if batchNotice}
+									<p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+										{batchNotice}
+									</p>
+								{/if}
+							</section>			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 				<h2 class="text-xl font-black text-lia-navy">Resumo</h2>
 				<p class="mt-2 text-sm leading-6 text-lia-muted">
-					Somente leitura: a verificação compara o catálogo do D1 com a Shopee e nunca altera ou
-					exclui produtos nem a planilha. Produtos com link curto de afiliado não têm itemId/shopId;
-					a busca por nome só sugere candidatos e o vínculo precisa ser confirmado manualmente.
+					A verificação consome a mesma fila do monitoramento: resolve links curtos, consulta a
+					Shopee pelo itemId/shopId e só vincula o produto quando a API devolve exatamente esse
+					anúncio. Nunca exclui produtos. A busca por nome só sugere candidatos para revisão manual;
+					nunca confirma identidade sozinha. Falhas técnicas (link não resolvido, erro de API) ficam
+					em "Produtos com falha" e não são marcadas como correspondência incerta.
 				</p>
 				<dl class="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-8">
-					{#each [['Produtos', data.counts.totalProducts], ['Vinculados', data.counts.linkedProducts], ['Auditados', data.counts.audited], ...data.statuses.map( (s) => [data.statusLabels[s], data.counts.byStatus[s]] )] as [label, value] (label)}
+					{#each [['Produtos', data.counts.totalProducts], ['Identificados', data.coverage.identified], ['Pendentes de identificação', data.coverage.pendingIdentification], ['Com falha técnica', data.coverage.failing], ['Auditados', data.counts.audited], ...data.statuses.map( (s) => [data.statusLabels[s], data.counts.byStatus[s]] )] as [label, value] (label)}
 						<div class="rounded-2xl bg-lia-cream p-3">
 							<dt class="text-xs font-semibold text-lia-muted">{label}</dt>
 							<dd class="text-2xl font-black text-lia-navy">{value}</dd>
@@ -69,8 +268,8 @@
 					{/each}
 				</dl>
 				<p class="mt-3 text-xs text-lia-muted">
-					Última verificação: {when(data.counts.lastVerifiedAt)} · Chamadas na última hora: {data
-						.budget.used}/{data.budget.limit}
+					Última verificação: {when(data.counts.lastVerifiedAt)} · Chamadas de API na última hora: {data
+						.budget.used}/{data.budget.limit} (links curtos não consomem este orçamento)
 				</p>
 
 				<form
@@ -86,12 +285,12 @@
 					}}
 				>
 					<label class="text-sm font-semibold text-lia-navy">
-						Produtos vinculados
+						Produtos da fila (máx. {data.batchSize})
 						<input
-							name="linkedLimit"
+							name="limit"
 							type="number"
-							min="0"
-							max="50"
+							min="1"
+							max={data.batchSize}
 							value={data.batchSize}
 							class="mt-1 block w-28 rounded-xl border border-lia-line px-3 py-2"
 						/>
@@ -107,19 +306,8 @@
 							class="mt-1 block w-28 rounded-xl border border-lia-line px-3 py-2"
 						/>
 					</label>
-					<label class="text-sm font-semibold text-lia-navy">
-						Links curtos a resolver (máx. 50)
-						<input
-							name="shortLinkLimit"
-							type="number"
-							min="0"
-							max="50"
-							value="10"
-							class="mt-1 block w-28 rounded-xl border border-lia-line px-3 py-2"
-						/>
-					</label>
 					<label class="flex items-center gap-2 text-sm text-lia-navy">
-						<input name="force" type="checkbox" /> Reverificar mesmo se verificado recentemente
+						<input name="force" type="checkbox" /> Reverificar mesmo se em dia
 					</label>
 					<button
 						type="submit"
@@ -143,13 +331,17 @@
 					{@const summary = form.runSummary}
 					<div class="mt-4 rounded-2xl bg-lia-cream p-4 text-sm text-lia-ink" role="status">
 						<strong
-							>Verificação {summary.status === 'completed' ? 'concluída' : summary.status}.</strong
+							>Verificação {summary.status === 'completed'
+								? 'concluída'
+								: summary.status === 'partial'
+									? 'parcial'
+									: 'com falha'}.</strong
 						>
 						<p class="mt-1">
-							Verificados: {summary.totals.products_checked} · Buscas por nome: {summary.totals
-								.discovery_searches} · Chamadas: {summary.totals.api_calls} · Preços alterados: {summary
-								.totals.price_changes} · Indisponíveis: {summary.totals.unavailable} · Falhas: {summary
-								.totals.failures}
+							Consultados na Shopee: {summary.totals.products_checked} · Buscas por nome: {summary
+								.totals.discovery_searches} · Chamadas de API: {summary.totals.api_calls} · Preços
+							alterados na API: {summary.totals.price_changes} · Preços atualizados no catálogo: {summary.priceUpdates}
+							· Indisponíveis: {summary.totals.unavailable} · Falhas: {summary.totals.failures}
 						</p>
 						{#if summary.errorMessage}<p class="mt-1 text-amber-900">
 								{summary.errorMessage}{summary.errorCode ? ` (${summary.errorCode})` : ''}
@@ -164,6 +356,9 @@
 								{#each Object.entries(summary.shortLinks.failures) as [code, count] (code)}
 									<li><code>{code}</code>: {count}</li>
 								{/each}
+								{#each Object.entries(summary.shortLinks.details) as [detail, count] (detail)}
+									<li class="list-none pl-4 text-xs"><code>{detail}</code>: {count}</li>
+								{/each}
 							</ul>
 						{/if}
 					</div>
@@ -175,6 +370,26 @@
 					</p>
 				{/if}
 			</section>
+
+			{#if data.failing.length > 0}
+				<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+					<h2 class="text-xl font-black text-lia-navy">Produtos com falha técnica</h2>
+					<ul class="mt-3 divide-y divide-lia-line text-sm">
+						{#each data.failing as item (item.product_id)}
+							<li class="py-2">
+								<strong>{item.name}</strong>
+								<span class="block text-xs text-lia-muted"
+									>{item.last_error_code ?? 'sem código'}{item.last_error_detail
+										? ` (${item.last_error_detail})`
+										: ''} · {item.consecutive_failures} falha(s) · próxima tentativa {when(
+										item.next_check_at
+									)}</span
+								>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 				<form method="GET" class="flex flex-wrap items-end gap-3">

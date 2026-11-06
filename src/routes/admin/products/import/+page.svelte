@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>Importar catálogo | Administração — Achadinhos da Lia</title>
+	<title>Importação legada da planilha | Administração — Achadinhos da Lia</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -21,7 +21,9 @@
 				<a href={resolve('/admin')} class="text-sm font-bold text-lia-orange hover:underline"
 					>← Painel admin</a
 				>
-				<h1 class="mt-1 text-2xl font-black text-lia-navy">Importar catálogo da planilha</h1>
+				<h1 class="mt-1 text-2xl font-black text-lia-navy">
+					Importação legada da planilha (somente leitura)
+				</h1>
 			</div>
 			<form method="POST" action="/admin/logout">
 				<button class="rounded-xl bg-lia-navy px-4 py-2 text-sm font-bold text-white">Sair</button>
@@ -33,8 +35,9 @@
 		<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 			<h2 class="text-xl font-black text-lia-navy">Diagnóstico</h2>
 			<p class="mt-2 text-sm leading-6 text-lia-muted">
-				A planilha é lida e comparada com o D1 sem gravar nada. A importação só ocorre ao confirmar.
-				Produtos já existentes no D1 só são sobrescritos se você marcar a opção de atualização.
+				A planilha é usada apenas como fonte de leitura; ao confirmar, os produtos são inseridos no
+				catálogo D1. Esta tela nunca grava na planilha. Produtos já existentes no D1 só são
+				sobrescritos se você marcar a opção de atualização.
 			</p>
 
 			{#if data.state === 'unavailable'}

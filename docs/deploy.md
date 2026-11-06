@@ -1,11 +1,15 @@
 # Deploy da integração Shopee
 
-Nada aqui é executado automaticamente. O monitor nasce **pausado** (migration 0004) e não há Cron nem `scheduled` no Worker.
+O Worker tem um Cron Trigger (`*/15 * * * *`, em `wrangler.jsonc`) e um handler `scheduled` anexado ao Worker gerado por `scripts/add-scheduled-handler.mjs` (passo de `npm run build`). Cada disparo grava um sinal de vida em `monitor_scheduler_heartbeat`, mas **só consulta a Shopee se o monitor estiver ativo**: ele nasce **pausado** (migration 0004) e continua assim até ser retomado em `/admin/products/monitor`. Cada disparo processa um lote da fila persistente (`product_monitor_state`); o intervalo do cron deve coincidir com `MONITOR_CRON_MINUTES` (teste automatizado).
+
+Após o deploy, para ligar com segurança: retomar a rotina com lote pequeno (ex.: 5), acompanhar 2–3 disparos em `/admin/products/monitor` (último disparo, falhas por motivo, chamadas usadas) e só então aumentar o lote. Os motivos de `invalid_redirect` (campo `detail`) aparecem na lista de falhas.
+
+A publicação na planilha foi removida; aprovados entram no catálogo por `/admin/products/add`. A leitura do CSV (`/admin/products/import`) permanece como ferramenta legada.
 
 ## Secrets do Worker
 
 Obrigatórios: `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_SESSION_SECRET` (senha e segredo com 32+ caracteres), `SHOPEE_APP_ID`, `SHOPEE_APP_SECRET`.
-Opcionais: `GA4_PROPERTY_ID`, `GA4_SERVICE_ACCOUNT_EMAIL`, `GA4_SERVICE_ACCOUNT_PRIVATE_KEY`, `GA4_DASHBOARD_TOKEN` (relatórios GA4) e `GOOGLE_SHEETS_*` (publicação na planilha).
+Opcionais: `GA4_PROPERTY_ID`, `GA4_SERVICE_ACCOUNT_EMAIL`, `GA4_SERVICE_ACCOUNT_PRIVATE_KEY`, `GA4_DASHBOARD_TOKEN` (relatórios GA4).
 
 Cada comando pede o valor de forma interativa, sem exibi-lo:
 
@@ -21,7 +25,7 @@ Conferir a presença (só nomes, nunca valores): `node scripts/check-secrets.mjs
 
 ## Migrations
 
-Ordem obrigatória (o Wrangler aplica em ordem numérica e registra as já aplicadas): `0001_candidates`, `0002_candidate_observations`, `0003_products`, `0004_catalog_audit_monitoring`, `0005_shopee_api_call_control`. Todas são cobertas pelos testes em um D1 descartável.
+Ordem obrigatória (o Wrangler aplica em ordem numérica e registra as já aplicadas): `0001_candidates`, `0002_candidate_observations`, `0003_products`, `0004_catalog_audit_monitoring`, `0005_shopee_api_call_control`, `0006_monitor_queue` (fila de monitoramento, sinal de vida, opção de atualizar preços; remove auditorias "incertas" artificiais de links curtos), `0007_audit_batches` (estado de auditoria por produto e lotes persistentes da auditoria incremental: `/admin/products/audit` audita até 1.000 produtos nunca auditados por solicitação, em blocos de 20, retomável; não altera preços nem religa o monitoramento). Todas são cobertas pelos testes em um D1 descartável.
 
 ## Checklist (nesta ordem)
 

@@ -15,6 +15,21 @@
 		warning: 'bg-amber-50 text-amber-900',
 		info: 'bg-sky-50 text-sky-900'
 	};
+	const failureLabels: Record<string, string> = {
+		unresolved: 'Link curto não resolvido',
+		api_error: 'Erro na API',
+		link_error: 'Vínculo não gravado'
+	};
+
+	const schedule = $derived.by(() => {
+		if (data.state !== 'ready') return null;
+		const { coverage, settings, heartbeat, cronMinutes, now } = data;
+		const batchesPerCycle = Math.ceil(coverage.eligible / Math.max(1, settings.batchSize));
+		const cycleHours = (batchesPerCycle * cronMinutes) / 60;
+		const lastTick = heartbeat ? Date.parse(heartbeat.lastTickAt) : NaN;
+		const alive = Number.isFinite(lastTick) && Date.parse(now) - lastTick < cronMinutes * 2.5 * 60000;
+		return { batchesPerCycle, cycleHours, alive, tooSlow: cycleHours > settings.intervalHours };
+	});
 </script>
 
 <svelte:head>
@@ -44,7 +59,7 @@
 			<p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
 				{data.state === 'unavailable'
 					? 'O banco D1 não está disponível neste ambiente.'
-					: 'Não foi possível ler as tabelas do monitor. Verifique se a migration 0004 foi aplicada.'}
+					: 'Não foi possível ler as tabelas do monitor. Verifique se as migrations até a 0006 foram aplicadas.'}
 			</p>
 		{:else}
 			{#if form?.message}
@@ -53,9 +68,21 @@
 				<p class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
 					Configurações salvas.
 				</p>
-			{:else if form?.ran}
+			{:else if form && 'requeued' in form}
 				<p class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
-					Execução finalizada: {form.ran.status}. {form.ran.errorMessage ?? ''}
+					{form.requeued} produto(s) com falha voltaram para a fila e serão tentados na próxima
+					execução. Nenhuma consulta foi feita agora.
+				</p>
+			{:else if form?.ran}
+				<p
+					class="rounded-xl p-3 text-sm {form.ran.status === 'completed'
+						? 'bg-emerald-50 text-emerald-800'
+						: 'bg-amber-50 text-amber-900'}"
+					role="status"
+				>
+					Execução {form.ran.status}: {form.ran.checked} produto(s) consultados na Shopee, {form.ran
+						.failures} com falha, {form.ran.apiCalls} chamada(s) de API, {form.ran.priceUpdates} preço(s)
+					atualizado(s). {form.ran.errorMessage ?? ''}
 				</p>
 			{/if}
 
@@ -69,6 +96,97 @@
 				</section>
 			{/if}
 
+			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+				<h2 class="text-xl font-black text-lia-navy">Cobertura do catálogo</h2>
+				<p class="mt-2 text-sm text-lia-muted">
+					Cada produto elegível (com link curto, URL com IDs ou vínculo) entra numa fila persistente:
+					nunca verificados primeiro, depois os vencidos. Ao terminar o ciclo a fila recomeça sozinha.
+					Produtos sem nenhum identificador ficam fora da fila e nunca são associados por nome.
+				</p>
+				<div
+					class="mt-4 h-3 overflow-hidden rounded-full bg-lia-cream"
+					role="progressbar"
+					aria-valuenow={data.coverage.coveragePercent}
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-label="Cobertura do catálogo"
+				>
+					<div class="h-full bg-lia-orange" style="width: {data.coverage.coveragePercent}%"></div>
+				</div>
+				<p class="mt-1 text-sm font-bold text-lia-navy">
+					{data.coverage.coveragePercent}% em dia ({data.coverage.monitored} de {data.coverage
+						.eligible} elegíveis)
+				</p>
+				<dl class="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+					<div><dt class="font-bold text-lia-navy">Total de produtos</dt><dd>{data.coverage.total}</dd></div>
+					<div>
+						<dt class="font-bold text-lia-navy">Identificados na Shopee</dt>
+						<dd>{data.coverage.identified}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Pendentes de identificação</dt>
+						<dd>{data.coverage.pendingIdentification}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Sem identificador (fora da fila)</dt>
+						<dd>{data.coverage.noIdentifier}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Monitorados (em dia)</dt>
+						<dd>{data.coverage.monitored}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Nunca verificados</dt>
+						<dd>{data.coverage.neverChecked}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Vencidos aguardando</dt>
+						<dd>{data.coverage.due}</dd>
+					</div>
+					<div><dt class="font-bold text-lia-navy">Com falha</dt><dd>{data.coverage.failing}</dd></div>
+					<div>
+						<dt class="font-bold text-lia-navy">Última execução</dt>
+						<dd>{when(data.runs[0]?.started_at ?? null)}</dd>
+					</div>
+					<div>
+						<dt class="font-bold text-lia-navy">Próxima execução automática</dt>
+						<dd>
+							{#if data.settings.paused}Pausada{:else if schedule?.alive}a cada {data.cronMinutes} min{:else}Sem
+								sinal do agendador{/if}
+						</dd>
+					</div>
+					<div class="sm:col-span-2">
+						<dt class="font-bold text-lia-navy">Progresso do ciclo</dt>
+						<dd>
+							{schedule?.batchesPerCycle} lote(s) de {data.settings.batchSize} para percorrer o catálogo
+							(≈ {schedule ? Math.round(schedule.cycleHours * 10) / 10 : 0} h com execução a cada {data.cronMinutes}
+							min)
+						</dd>
+					</div>
+				</dl>
+				{#if schedule?.tooSlow}
+					<p class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+						O ciclo completo leva mais que o intervalo de {data.settings.intervalHours} h: produtos
+						vencerão antes de serem revisitados. Aumente o lote por execução ou o intervalo.
+					</p>
+				{/if}
+			</section>
+
+			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+				<h2 class="text-xl font-black text-lia-navy">Agendamento automático</h2>
+				<p class="mt-2 text-sm text-lia-muted">
+					O Cron do Worker dispara a cada {data.cronMinutes} minutos e processa um lote da fila,
+					exceto enquanto a rotina estiver pausada. O estado abaixo vem do último disparo realmente
+					registrado, não da configuração.
+				</p>
+				<p class="mt-2 text-sm">
+					<strong>Rotina:</strong>
+					{data.settings.paused ? 'pausada (nenhuma consulta é feita)' : 'ativa'} ·
+					<strong>Último disparo do cron:</strong>
+					{#if data.heartbeat}{when(data.heartbeat.lastTickAt)} ({data.heartbeat.lastResult}){:else}nunca
+						registrado — o cron ainda não disparou neste banco{/if}
+				</p>
+			</section>
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 				<h2 class="text-xl font-black text-lia-navy">Consumo da API Shopee</h2>
 				<p class="mt-2 text-sm text-lia-muted">
@@ -125,36 +243,56 @@
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
 				<h2 class="text-xl font-black text-lia-navy">Rotina e limites</h2>
 				<p class="mt-2 text-sm text-lia-muted">
-					O agendamento automático não está ligado; a rotina só roda manualmente e começa pausada.
+					Três limites distintos: o <strong>lote</strong> é quantos produtos entram em cada
+					execução; o <strong>intervalo</strong> é de quanto em quanto tempo cada produto deve ser
+					revisitado; o <strong>orçamento</strong> é o teto de requisições HTTP à API por hora (um
+					lote de até 10 produtos consome 1 chamada; links curtos são resolvidos por HTTP comum e não
+					consomem a API).
 				</p>
 				<form method="POST" action="?/settings" use:enhance class="mt-4 grid gap-3 sm:grid-cols-4">
 					<label class="flex items-center gap-2 text-sm font-bold text-lia-navy">
 						<input type="checkbox" name="paused" checked={data.settings.paused} class="h-4 w-4" />
 						Pausada
 					</label>
+					<label class="flex items-center gap-2 text-sm font-bold text-lia-navy sm:col-span-3">
+						<input
+							type="checkbox"
+							name="updatePrices"
+							checked={data.settings.updatePrices}
+							class="h-4 w-4"
+						/>
+						Atualizar preços do catálogo com o preço observado pela Shopee (só produtos
+						confirmados)
+					</label>
 					<label class="text-sm font-bold text-lia-navy"
-						>Intervalo (h)
+						>Intervalo por produto (h)
 						<input
 							name="intervalHours"
 							type="number"
+							min="1"
+							max="168"
 							value={data.settings.intervalHours}
 							class="mt-1 w-full rounded-xl border border-lia-line px-3 py-2"
 						/></label
 					>
 					<label class="text-sm font-bold text-lia-navy"
-						>Lote por execução
+						>Produtos por execução (1–50)
 						<input
 							name="batchSize"
 							type="number"
+							min="1"
+							max="50"
 							value={data.settings.batchSize}
 							class="mt-1 w-full rounded-xl border border-lia-line px-3 py-2"
 						/></label
 					>
 					<label class="text-sm font-bold text-lia-navy"
-						>Chamadas/hora
+						>Chamadas de API por hora
 						<input
 							name="hourlyCallBudget"
 							type="number"
+							min="1"
+							max="2000"
 							value={data.settings.hourlyCallBudget}
 							class="mt-1 w-full rounded-xl border border-lia-line px-3 py-2"
 						/></label
@@ -164,24 +302,59 @@
 						>Salvar</button
 					>
 				</form>
-				<form
-					method="POST"
-					action="?/run"
-					class="mt-4"
-					use:enhance={() => {
-						running = true;
-						return async ({ update }) => {
-							await update();
-							running = false;
-						};
-					}}
-				>
-					<button
-						disabled={running}
-						class="rounded-xl bg-lia-orange px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-						>{running ? 'Executando…' : 'Executar agora (somente produtos vinculados)'}</button
+				<div class="mt-4 flex flex-wrap gap-3">
+					<form
+						method="POST"
+						action="?/run"
+						use:enhance={() => {
+							running = true;
+							return async ({ update }) => {
+								await update();
+								running = false;
+							};
+						}}
 					>
-				</form>
+						<button
+							disabled={running}
+							class="rounded-xl bg-lia-orange px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+							>{running ? 'Executando…' : 'Processar próximo lote da fila'}</button
+						>
+					</form>
+					<form method="POST" action="?/requeue" use:enhance>
+						<button class="rounded-xl border border-lia-line px-4 py-2 text-sm font-bold text-lia-navy"
+							>Recolocar falhas na fila</button
+						>
+					</form>
+				</div>
+			</section>
+
+			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">
+				<h2 class="text-xl font-black text-lia-navy">Produtos com falha</h2>
+				{#if data.failing.length === 0}
+					<p class="mt-2 text-sm text-lia-muted">Nenhum produto com falha ativa.</p>
+				{:else}
+					<p class="mt-2 text-sm text-lia-muted">
+						Falhas por motivo:
+						{#each data.failureCodes as item, index (item.code)}{index > 0
+								? ', '
+								: ''}{item.code} ({item.count}){/each}. Cada falha recua a próxima tentativa
+						(30 min, 2 h, 6 h, 24 h, 48 h) em vez de repetir sem parar.
+					</p>
+					<ul class="mt-3 divide-y divide-lia-line text-sm">
+						{#each data.failing as item (item.product_id)}
+							<li class="py-2">
+								<strong>{item.name}</strong>
+								<span class="block text-xs text-lia-muted"
+									>{failureLabels[item.last_outcome] ?? item.last_outcome} · {item.last_error_code ??
+										'sem código'}{item.last_error_detail ? ` (${item.last_error_detail})` : ''} ·
+									{item.consecutive_failures} falha(s) seguida(s) · próxima tentativa {when(
+										item.next_check_at
+									)}</span
+								>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</section>
 
 			<section class="rounded-3xl border border-lia-line bg-white p-5 shadow-sm sm:p-7">

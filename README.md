@@ -1,6 +1,6 @@
 # Achadinhos da Lia
 
-Vitrine de ofertas e cupons da Shopee. Feita com SvelteKit + Tailwind. Os produtos vêm de uma planilha do Google Sheets publicada como CSV.
+Vitrine de ofertas e cupons da Shopee. Feita com SvelteKit + Tailwind. O catálogo ativo fica no D1; a planilha publicada como CSV é mantida como fonte legada somente para leitura.
 
 ## Rodando
 
@@ -16,7 +16,7 @@ As instruções de configuração local, acesso administrativo e teste da conex�
 
 ## Como os produtos entram
 
-A planilha é lida no servidor (`src/lib/server/sheets.ts`), com cache de 5 minutos. Se a planilha falhar depois de uma carga válida, o site mantém a última versão em cache e avisa que preços e disponibilidade podem ter mudado. Linhas com dados obrigatórios inválidos ou URLs que não sejam HTTP(S) são ignoradas; IDs repetidos são ajustados para permanecer únicos.
+Candidatos aprovados podem ser revalidados e adicionados diretamente ao catálogo D1 em `/admin/products/add`. A tela `/admin/products/import` mantém a importação legada: lê e valida o CSV da planilha (`src/lib/server/sheets.ts`) e, após confirmação, insere os produtos no D1. Essa integração é somente leitura e nunca publica dados de volta na planilha.
 O link do CSV fica em `src/lib/config.ts`. Para ver o site com produtos de mentira, troque `SHOW_DEMO_DATA` para `true` nesse mesmo arquivo.
 
 ## Relatórios do Google Analytics 4
@@ -48,7 +48,7 @@ Cupons são resgatados manualmente na [página oficial de cupons da Shopee](http
 ```
 src/
   routes/
-    +page.server.ts      carrega os produtos da planilha
+    +page.server.ts      carrega produtos do D1
     +page.svelte         só monta a página com os componentes
   lib/
     components/          SiteHeader, Hero (HeroFeed + LiaStage + OrbitCard),
@@ -59,5 +59,5 @@ src/
     products.ts          prepara os produtos para a vitrine
     categories.ts        cadastro de categorias
     format.ts            moeda, preço e texto sem acento
-    server/sheets.ts     leitura e validação da planilha
+    server/sheets.ts     leitura e validação do CSV legado
 ```

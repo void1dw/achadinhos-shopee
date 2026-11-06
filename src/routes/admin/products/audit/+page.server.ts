@@ -15,6 +15,17 @@ import {
 	getMonitorSettings,
 	listAudits
 } from '../../../../lib/server/shopee/monitor-store';
+import { getCoverageStats, listFailingProducts } from '../../../../lib/server/shopee/monitor-queue';
+import {
+	MAX_BATCH_SIZE,
+	cancelBatch,
+	getAuditStats,
+	getOpenBatch,
+	releaseExhausted,
+	resumeBatch,
+	runBatchStep,
+	startOrResumeBatch
+} from '../../../../lib/server/shopee/audit-batch';
 import {
 	AUDIT_STATUSES,
 	AUDIT_STATUS_LABELS,
@@ -37,6 +48,22 @@ function parseStatus(value: string | null): AuditStatus | undefined {
 	return AUDIT_STATUSES.find((status) => status === value);
 }
 
+async function guardBatchAction(
+	cookies: { get(name: string): string | undefined },
+	request: Request,
+	setHeaders: (headers: Record<string, string>) => void,
+	needsShopee = false
+) {
+	setHeaders(responseHeaders);
+	if (!(await authenticated(cookies))) return fail(401, { message: 'Sessão administrativa inválida.' });
+	if (!isSameOrigin(request)) return fail(403, { message: 'Origem da requisição inválida.' });
+	if (!env.CANDIDATES_DB) return fail(503, { message: 'O banco D1 não está disponível.' });
+	if (needsShopee && (!env.SHOPEE_APP_ID || !env.SHOPEE_APP_SECRET)) {
+		return fail(503, { message: 'As credenciais da Shopee não estão configuradas.' });
+	}
+	return null;
+}
+
 function parseCount(value: FormDataEntryValue | null, fallback: number, max: number): number {
 	if (typeof value !== 'string' || !/^\d{1,3}$/.test(value)) return fallback;
 	return Math.min(Number(value), max);
@@ -54,15 +81,24 @@ export const load: PageServerLoad = async ({ cookies, request, setHeaders, url }
 	const page = Number.isInteger(pageParam) && pageParam >= 1 ? Math.min(pageParam, MAX_PAGE) : 1;
 
 	try {
-		const [counts, rows, settings, usage] = await Promise.all([
+		const [counts, rows, settings, usage, coverage, failing, auditStats, openBatch] = await Promise.all([
 			getAuditCounts(db),
 			listAudits(db, { status, search, limit: PAGE_SIZE + 1, offset: (page - 1) * PAGE_SIZE }),
 			getMonitorSettings(db),
-			getApiUsage(db)
+			getApiUsage(db),
+			getCoverageStats(db, new Date()),
+			listFailingProducts(db, 15),
+			getAuditStats(db),
+			getOpenBatch(db)
 		]);
 		return {
 			state: 'ready' as const,
 			counts,
+			coverage,
+			failing,
+			auditStats,
+			openBatch,
+			maxBatchSize: MAX_BATCH_SIZE,
 			filters: { status: status ?? '', q: search, page },
 			hasNextPage: rows.length > PAGE_SIZE,
 			audits: rows.slice(0, PAGE_SIZE),
@@ -83,6 +119,55 @@ export const load: PageServerLoad = async ({ cookies, request, setHeaders, url }
 };
 
 export const actions: Actions = {
+	startBatch: async ({ cookies, request, setHeaders }) => {
+		const guard = await guardBatchAction(cookies, request, setHeaders);
+		if (guard) return guard;
+		try {
+			const result = await startOrResumeBatch(env.CANDIDATES_DB!, new Date());
+			if (result.state === 'empty') {
+				return { batchStep: { state: 'empty' as const, batch: null, message: null } };
+			}
+			return { batchStep: { state: result.state, batch: result.batch, message: null } };
+		} catch (error) {
+			console.error('Audit batch start failed:', error instanceof Error ? error.message : String(error));
+			return fail(500, { message: 'Não foi possível iniciar o lote de auditoria.' });
+		}
+	},
+
+	step: async ({ cookies, request, setHeaders }) => {
+		const guard = await guardBatchAction(cookies, request, setHeaders, true);
+		if (guard) return guard;
+		try {
+			const form = await request.formData();
+			if (form.get('resume') === '1') await resumeBatch(env.CANDIDATES_DB!, new Date());
+			const result = await runBatchStep(env.CANDIDATES_DB!, env);
+			return {
+				batchStep: {
+					state: result.state,
+					batch: 'batch' in result ? result.batch : null,
+					message: result.state === 'blocked' ? result.message : null
+				}
+			};
+		} catch (error) {
+			console.error('Audit batch step failed:', error instanceof Error ? error.message : String(error));
+			return fail(500, { message: 'O bloco não pôde ser processado; o lote foi preservado e pode ser retomado.' });
+		}
+	},
+
+	cancelBatch: async ({ cookies, request, setHeaders }) => {
+		const guard = await guardBatchAction(cookies, request, setHeaders);
+		if (guard) return guard;
+		const cancelled = await cancelBatch(env.CANDIDATES_DB!, new Date());
+		return { batchStep: { state: cancelled ? ('cancelled' as const) : ('none' as const), batch: null, message: null } };
+	},
+
+	releaseExhausted: async ({ cookies, request, setHeaders }) => {
+		const guard = await guardBatchAction(cookies, request, setHeaders);
+		if (guard) return guard;
+		const released = await releaseExhausted(env.CANDIDATES_DB!);
+		return { released };
+	},
+
 	run: async ({ cookies, request, setHeaders }) => {
 		setHeaders(responseHeaders);
 		if (!(await authenticated(cookies)))
@@ -95,27 +180,31 @@ export const actions: Actions = {
 		}
 
 		const form = await request.formData();
-		const linkedLimit = parseCount(form.get('linkedLimit'), 20, 50);
+		const limit = parseCount(form.get('limit'), 20, 50);
 		const discoveryLimit = parseCount(form.get('discoveryLimit'), 0, 10);
-		const shortLinkLimit = parseCount(form.get('shortLinkLimit'), 10, 50);
 		try {
 			const outcome = await runCatalogAudit(db, env, {
 				trigger: 'manual',
-				linkedLimit,
+				limit,
 				discoveryLimit,
-				shortLinkLimit,
 				force: form.get('force') === 'on'
 			});
 			if (outcome.state === 'busy') {
 				return fail(409, { message: 'Já existe uma verificação em andamento.' });
 			}
 			if (outcome.state === 'blocked') return fail(429, { message: outcome.message });
-			if (outcome.state === 'skipped') return fail(409, { message: 'Execução ignorada.' });
+			if (outcome.state === 'skipped') {
+				return fail(409, {
+					message:
+						'Nenhum produto vencido na fila. Marque "reverificar mesmo em dia" para forçar uma nova leitura; nada foi consultado.'
+				});
+			}
 			return {
 				runSummary: {
 					status: outcome.status,
 					totals: outcome.totals,
 					shortLinks: outcome.shortLinks,
+					priceUpdates: outcome.priceUpdates,
 					errorCode: outcome.errorCode,
 					errorMessage: outcome.errorMessage
 				}

@@ -19,6 +19,11 @@
                          }
                      ],
     "workers_dev":  true,
+    "triggers":  {
+                     "crons":  [
+                                   "*/15 * * * *"
+                               ]
+                 },
     "preview_urls":  true,
     "observability":  {
                           "enabled":  true

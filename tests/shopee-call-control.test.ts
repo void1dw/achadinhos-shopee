@@ -17,7 +17,7 @@ import {
 } from '../src/lib/server/shopee/client.ts';
 import { handleShopeeCommissionProbe } from '../src/lib/server/shopee/commission-probe.ts';
 import { handleShopeeItemLookup } from '../src/lib/server/shopee/item-lookup.ts';
-import { shopeeRevalidator } from '../src/lib/server/shopee/sheet-publish.ts';
+import { shopeeRevalidator } from '../src/lib/server/shopee/catalog-add.ts';
 import { createAdminSession } from '../src/lib/server/admin-auth.ts';
 import { getApiControlStats, getApiUsage } from '../src/lib/server/shopee/monitor-store.ts';
 

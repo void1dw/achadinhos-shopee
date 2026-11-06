@@ -74,7 +74,7 @@ function apiFetcher(
 	return { fetcher, state };
 }
 
-const options = { trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, force: true } as const;
+const options = { trigger: 'manual', limit: 50, discoveryLimit: 0, force: true } as const;
 const sleep = async () => {};
 
 test('link curto confirmado pela API grava o vínculo e preserva products.url', async () => {
@@ -101,7 +101,8 @@ test('link curto confirmado pela API grava o vínculo e preserva products.url', 
 			linked: 1,
 			failed: 0,
 			stageFailures: { resolve: 0, api: 0, link: 0 },
-			failures: {}
+			failures: {},
+			details: {}
 		});
 		assert.deepEqual(resolved, [url]);
 		assert.equal(api.state.calls, 1);
@@ -194,10 +195,16 @@ test('link curto que falha na resolução não cai na descoberta por nome', asyn
 		assert.equal(searches, 0);
 		assert.equal(api.state.calls, 0);
 		assert.equal(outcome.totals.discovery_searches, 0);
-		// A tentativa fica registrada para o rodízio não travar nos mesmos links.
-		const audit = (await getAudits(db, ['sl-nodisc'])).get('sl-nodisc');
-		assert.equal(audit?.status, 'uncertain');
-		assert.equal(audit?.match_level, 'none');
+		// Falha técnica não vira auditoria "incerta" artificial; fica só no estado da fila, com backoff.
+		assert.equal((await getAudits(db, ['sl-nodisc'])).has('sl-nodisc'), false);
+		const state = await db
+			.prepare(
+				'SELECT last_outcome, last_error_code, consecutive_failures, next_check_at FROM product_monitor_state WHERE product_id = ?'
+			)
+			.bind('sl-nodisc')
+			.first<{ last_outcome: string; consecutive_failures: number }>();
+		assert.equal(state?.last_outcome, 'unresolved');
+		assert.equal(state?.consecutive_failures, 1);
 	});
 });
 
@@ -268,7 +275,7 @@ test('respeita o limite de resoluções por execução', async () => {
 		const outcome = await runCatalogAudit(
 			db,
 			credentials,
-			{ ...options, shortLinkLimit: 2 },
+			{ ...options, limit: 2 },
 			{ fetcher: apiFetcher(new Set()).fetcher, resolveFetcher, sleep }
 		);
 		assert.equal(resolves, 2);

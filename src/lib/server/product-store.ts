@@ -80,6 +80,27 @@ export async function insertProduct(db: D1Database, product: Product): Promise<P
 	return stored;
 }
 
+export async function insertProductWithShopeeLink(
+	db: D1Database,
+	product: Product,
+	link: ProductShopeeLink
+): Promise<Product> {
+	assertShopeeId(link.itemId, 'itemId');
+	assertShopeeId(link.shopId, 'shopId');
+	await db.batch([
+		db
+			.prepare(
+				`INSERT INTO products
+			(id, name, category, category_id, auto_rule, price, price_max, previous_price,
+			previous_price_max, image, url, published_at, item_id, shop_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			)
+			.bind(product.id, ...editableValues(product), link.itemId, link.shopId)
+	]);
+	const stored = await getProductById(db, product.id);
+	if (!stored) throw new Error('Product was not found after insert.');
+	return stored;
+}
 export async function listProductIds(db: D1Database): Promise<Set<string>> {
 	const result = await db.prepare('SELECT id FROM products').all<{ id: string }>();
 	return new Set(result.results.map((row) => row.id));
@@ -243,6 +264,34 @@ export async function unlinkProductFromShopee(db: D1Database, id: string): Promi
 			WHERE id = ?`
 		)
 		.bind(id)
+		.run();
+	return result.meta.changes > 0;
+}
+
+/**
+ * Aplica o preço observado pela API da Shopee em um produto já vinculado. O preço anterior só é
+ * mantido como "de" quando houve queda; qualquer alta ou igualdade o limpa. Retorna se algo mudou.
+ */
+export async function applyObservedPrice(
+	db: D1Database,
+	id: string,
+	priceMin: number,
+	priceMax: number | null
+): Promise<boolean> {
+	if (!Number.isFinite(priceMin) || priceMin <= 0) return false;
+	const max =
+		priceMax !== null && Number.isFinite(priceMax) && priceMax > priceMin ? priceMax : null;
+	const result = await db
+		.prepare(
+			`UPDATE products SET
+				previous_price = CASE WHEN ? < price THEN price ELSE NULL END,
+				previous_price_max = CASE WHEN ? < price THEN price_max ELSE NULL END,
+				price = ?, price_max = ?,
+				updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			WHERE id = ? AND item_id IS NOT NULL
+				AND (ROUND(price * 100) != ROUND(? * 100) OR COALESCE(ROUND(price_max * 100), -1) != COALESCE(ROUND(? * 100), -1))`
+		)
+		.bind(priceMin, priceMin, priceMin, max, id, priceMin, max)
 		.run();
 	return result.meta.changes > 0;
 }

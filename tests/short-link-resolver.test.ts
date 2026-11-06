@@ -67,15 +67,36 @@ test('rejeita redirecionamentos para host, protocolo ou formato inválidos', asy
 		'ftp://shopee.com.br/opaanlp/1/2'
 	]) {
 		const { fetcher } = sequence(redirect(location));
-		assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/abc', { fetcher }), {
-			ok: false,
-			code: 'invalid_redirect'
-		});
+		const result = await resolveShortLink('https://s.shopee.com.br/abc', { fetcher });
+		assert.equal(!result.ok && result.code, 'invalid_redirect');
 	}
 	const noLocation = sequence(new Response(null, { status: 302 }));
 	assert.deepEqual(
 		await resolveShortLink('https://s.shopee.com.br/abc', { fetcher: noLocation.fetcher }),
-		{ ok: false, code: 'invalid_redirect' }
+		{ ok: false, code: 'invalid_redirect', detail: 'sem_location' }
+	);
+});
+
+test('invalid_redirect traz um diagnóstico seguro (só host, nunca caminho/query)', async () => {
+	const cases: Array<[string, string]> = [
+		['https://evil.example/opaanlp/1/2?token=segredo', 'host:evil.example'],
+		['http://shopee.com.br/opaanlp/1/2', 'protocolo_nao_https'],
+		['https://shopee.com.br:8443/opaanlp/1/2', 'porta_ou_credenciais'],
+		['/opaanlp/1/2', 'location_relativo'],
+		[`https://shopee.com.br/opaanlp/1/2?x=${'a'.repeat(9000)}`, 'location_longo']
+	];
+	for (const [location, detail] of cases) {
+		const { fetcher } = sequence(redirect(location));
+		assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/abc', { fetcher }), {
+			ok: false,
+			code: 'invalid_redirect',
+			detail
+		});
+	}
+	const long = sequence(redirect(`https://shopee.com.br/opaanlp/1/2?x=${'a'.repeat(3000)}`));
+	assert.equal(
+		(await resolveShortLink('https://s.shopee.com.br/abc', { fetcher: long.fetcher })).ok,
+		true
 	);
 });
 
@@ -134,10 +155,9 @@ test('rejeita destino relativo e subdomínios de shopee.com.br', async () => {
 		'https://SHOPEE.COM.BR.evil.example/opaanlp/11/22'
 	]) {
 		const { fetcher } = sequence(redirect(location));
-		assert.deepEqual(await resolveShortLink('https://s.shopee.com.br/a', { fetcher }), {
-			ok: false,
-			code: 'invalid_redirect'
-		});
+		const result = await resolveShortLink('https://s.shopee.com.br/a', { fetcher });
+		assert.equal(result.ok, false);
+		assert.equal(!result.ok && result.code, 'invalid_redirect');
 	}
 });
 

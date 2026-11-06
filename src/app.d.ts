@@ -26,10 +26,6 @@ declare global {
 			ADMIN_SESSION_SECRET?: string;
 			SHOPEE_APP_ID?: string;
 			SHOPEE_APP_SECRET?: string;
-			GOOGLE_SHEETS_SPREADSHEET_ID?: string;
-			GOOGLE_SHEETS_SHEET_NAME?: string;
-			GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL?: string;
-			GOOGLE_SHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import { linkProductToShopee } from '../product-store';
+import { applyObservedPrice, linkProductToShopee } from '../product-store';
 import { createD1CallControl, type ShopeeCallControl } from './call-control';
 import {
 	getProductOffers,
@@ -12,12 +12,8 @@ import {
 	getAudits,
 	getLatestObservations,
 	getMonitorSettings,
-	listMonitorRuns,
 	saveAuditResults,
 	selectDiscoveryTargets,
-	selectLinkedTargets,
-	selectShortLinkTargets,
-	selectUrlTargets,
 	startMonitorRun,
 	type AuditTarget,
 	type MonitorEventInput,
@@ -25,6 +21,13 @@ import {
 	type MonitorTrigger,
 	type StoredAudit
 } from './monitor-store';
+import {
+	isFailureOutcome,
+	recordQueueChecks,
+	recordSchedulerHeartbeat,
+	selectQueueBatch,
+	type QueueCheck
+} from './monitor-queue';
 import {
 	classifyIdentifiedProduct,
 	classifyNameSearch,
@@ -34,28 +37,35 @@ import {
 	type ShopeeIds
 } from './product-match';
 import type { ShopeeProductOfferV2 } from './types';
-import { DEFAULT_SHORT_LINK_LIMIT, resolveShortLink } from './short-link-resolver';
+import { resolveShortLink } from './short-link-resolver';
 
 export const MAX_DISCOVERY_SEARCHES_PER_RUN = 10;
+/** Teto de produtos por execução; o lote configurado (1–50) nunca ultrapassa isto. */
+export const MAX_QUEUE_BATCH = 50;
+/**
+ * Resoluções HTTP de links curtos por execução. Cada uma é uma subrequisição do Worker (limite de
+ * 50 no plano gratuito, somado às consultas D1); os demais produtos permanecem no início da fila.
+ */
+export const MAX_SHORT_LINK_RESOLUTIONS_PER_RUN = 25;
+const SHORT_LINK_CONCURRENCY = 4;
 const MAX_CONSECUTIVE_CHUNK_FAILURES = 3;
 const RETRY_DELAYS_MS = [500, 1500];
-const HOUR_MS = 60 * 60 * 1000;
 
 type Credentials = Pick<Cloudflare.Env, 'SHOPEE_APP_ID' | 'SHOPEE_APP_SECRET'>;
 
 export type CatalogAuditOptions = {
 	trigger: MonitorTrigger;
-	/** Produtos com itemId/shopId (vínculo ou URL completa) a revalidar, em lotes de 10 por chamada. */
-	linkedLimit: number;
-	/** Buscas por nome (uma chamada cada) para produtos sem identificadores. */
-	discoveryLimit: number;
-	/** Ignora o intervalo mínimo entre verificações (execução manual explícita). */
+	/** Produtos da fila nesta execução (limitado ao lote configurado e a 50). */
+	limit?: number;
+	/** Ignora a data de vencimento: reverifica os mais antigos (mesma ordem de rodízio da fila). */
 	force?: boolean;
+	/** Buscas por nome (uma chamada cada) para produtos sem identificador; só descoberta, nunca vínculo. */
+	discoveryLimit?: number;
 	/**
-	 * Máximo de links curtos s.shopee.com.br resolvidos por HTTP nesta execução (padrão 10).
-	 * Independe do orçamento de chamadas da API de afiliados.
+	 * Alvos explícitos (lote de auditoria incremental). Dispensam a fila e a busca por nome; o
+	 * chamador define o tamanho, que continua sujeito ao orçamento e ao teto de resoluções.
 	 */
-	shortLinkLimit?: number;
+	targets?: AuditTarget[];
 };
 
 export type CatalogAuditDeps = {
@@ -75,11 +85,13 @@ export type ShortLinkSummary = {
 	stageFailures: { resolve: number; api: number; link: number };
 	/** Contagem por código de falha (sem URLs nem IDs). */
 	failures: Record<string, number>;
+	/** Subdiagnóstico seguro de `invalid_redirect` (ex.: `host:exemplo.com`); nunca caminho nem query. */
+	details: Record<string, number>;
 };
 
 export type CatalogAuditOutcome =
 	| { state: 'busy' }
-	| { state: 'skipped'; reason: 'paused' | 'interval' }
+	| { state: 'skipped'; reason: 'paused' | 'empty' }
 	| { state: 'blocked'; code: string; message: string }
 	| {
 			state: 'finished';
@@ -89,6 +101,10 @@ export type CatalogAuditOutcome =
 			errorCode: string | null;
 			errorMessage: string | null;
 			shortLinks: ShortLinkSummary;
+			/** Produtos que tiveram o preço atualizado a partir de uma observação válida da API. */
+			priceUpdates: number;
+			/** Resultado por produto efetivamente verificado (ausentes não foram processados). */
+			checks: QueueCheck[];
 	  };
 
 const cents = (value: number) => Math.round(value * 100);
@@ -207,7 +223,30 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 	return result;
 }
 
-type Identified = { target: AuditTarget; ids: ShopeeIds; level: 'linked' | 'url_id' };
+async function mapPool<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	work: (item: T) => Promise<R>
+): Promise<R[]> {
+	const results = new Array<R>(items.length);
+	let next = 0;
+	const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+		while (next < items.length) {
+			const index = next++;
+			results[index] = await work(items[index]!);
+		}
+	});
+	await Promise.all(workers);
+	return results;
+}
+
+type Identified = {
+	target: AuditTarget;
+	ids: ShopeeIds;
+	level: 'linked' | 'url_id';
+	/** O vínculo itemId/shopId ainda não existe no produto e só é gravado após a API confirmar. */
+	needsLink: boolean;
+};
 
 function safeError(error: unknown): { code: string; message: string } {
 	if (error instanceof ShopeeApiError) {
@@ -226,9 +265,25 @@ const isStopError = (error: unknown): boolean =>
 	error instanceof ShopeeApiError &&
 	(error.kind === 'rate_limit' || error.kind === 'graphql' || error.kind === 'budget');
 
+function isFatal(error: { code: string }): boolean {
+	return (
+		error.code === 'BUDGET_EXHAUSTED' ||
+		error.code === 'SHOPEE_CALL_CONTROL_UNAVAILABLE' ||
+		error.code === 'SHOPEE_CALL_CONTROL_REQUIRED' ||
+		error.code === 'SHOPEE_RATE_LIMIT' ||
+		error.code.startsWith('SHOPEE_INVALID_CREDENTIAL') ||
+		error.code === 'SHOPEE_API_ACCESS_DENIED' ||
+		error.code === 'SHOPEE_QUERY_PARSE_ERROR' ||
+		error.code === 'SHOPEE_INVALID_PARAMETERS' ||
+		error.code === 'SHOPEE_GRAPHQL_ERROR'
+	);
+}
+
 /**
- * Verifica produtos do catálogo contra a Shopee. Só grava em tabelas de auditoria,
- * monitoramento e uso da API; a tabela `products` nunca é alterada.
+ * Processa o próximo lote da fila persistente de monitoramento: resolve links curtos (HTTP, sem
+ * custo de API), consulta a Shopee em lotes de 10 e só confirma o vínculo quando a API devolve
+ * exatamente o itemId/shopId resolvido. O preço do catálogo só é alterado quando a opção
+ * "atualizar preços" está ligada e a API observou o anúncio confirmado. Nenhum produto é apagado.
  */
 export async function runCatalogAudit(
 	db: D1Database,
@@ -249,6 +304,27 @@ export async function runCatalogAudit(
 		};
 	}
 
+	const limit = Math.max(
+		0,
+		Math.min(options.limit ?? settings.batchSize, settings.batchSize, MAX_QUEUE_BATCH)
+	);
+	const discoveryLimit = Math.max(
+		0,
+		Math.min(options.discoveryLimit ?? 0, MAX_DISCOVERY_SEARCHES_PER_RUN)
+	);
+	const targets =
+		options.targets ?? (await selectQueueBatch(db, startedAt, limit, options.force ?? false));
+	const discovery = options.targets
+		? []
+		: await selectDiscoveryTargets(
+				db,
+				options.force
+					? startedAt
+					: new Date(startedAt.getTime() - settings.intervalHours * 60 * 60 * 1000),
+				discoveryLimit
+			);
+	if (targets.length === 0 && discovery.length === 0) return { state: 'skipped', reason: 'empty' };
+
 	const runId = await startMonitorRun(db, options.trigger, startedAt);
 	if (runId === null) return { state: 'busy' };
 
@@ -267,88 +343,78 @@ export async function runCatalogAudit(
 	};
 	let stopError: { code: string; message: string } | null = null;
 	let saved = 0;
+	let priceUpdates = 0;
 	const shortLinks: ShortLinkSummary = {
 		attempted: 0,
 		resolved: 0,
 		linked: 0,
 		failed: 0,
 		stageFailures: { resolve: 0, api: 0, link: 0 },
-		failures: {}
+		failures: {},
+		details: {}
 	};
-	const countShortFailure = (code: string, stage: 'resolve' | 'api' | 'link') => {
+	const countShortFailure = (code: string, stage: 'resolve' | 'api' | 'link', detail?: string) => {
 		shortLinks.failed += 1;
 		shortLinks.stageFailures[stage] += 1;
 		shortLinks.failures[code] = (shortLinks.failures[code] ?? 0) + 1;
+		if (detail) shortLinks.details[detail] = (shortLinks.details[detail] ?? 0) + 1;
+	};
+	const checks = new Map<string, QueueCheck>();
+	const failureCodes: Record<string, number> = {};
+	const recordCheck = (check: QueueCheck) => {
+		checks.set(check.productId, check);
+		if (isFailureOutcome(check.outcome)) {
+			state.totals.failures += 1;
+			const code = check.errorCode ?? 'desconhecido';
+			failureCodes[code] = (failureCodes[code] ?? 0) + 1;
+		}
 	};
 
 	try {
-		const linkedLimit = Math.max(0, Math.min(options.linkedLimit, settings.batchSize));
-		const discoveryLimit = Math.max(
-			0,
-			Math.min(options.discoveryLimit, MAX_DISCOVERY_SEARCHES_PER_RUN)
-		);
-		const cutoff = options.force
-			? startedAt
-			: new Date(startedAt.getTime() - settings.intervalHours * HOUR_MS);
-
 		const identified: Identified[] = [];
-		for (const target of await selectLinkedTargets(db, cutoff, linkedLimit)) {
-			identified.push({
-				target,
-				ids: { itemId: target.itemId!, shopId: target.shopId! },
-				level: 'linked'
-			});
-		}
-		if (identified.length < linkedLimit) {
-			for (const target of await selectUrlTargets(db, cutoff, linkedLimit - identified.length)) {
-				const ids = extractShopeeIdsFromUrl(target.product.url);
-				if (ids) identified.push({ target, ids, level: 'url_id' });
-			}
-		}
-		const shortLinkProductIds = new Set<string>();
-		const unresolvedResults: AuditResult[] = [];
-		const shortLinkAttemptedIds = new Set<string>();
-		const shortLinkLimit = Math.max(
-			0,
-			Math.min(options.shortLinkLimit ?? DEFAULT_SHORT_LINK_LIMIT, 50)
-		);
-		for (const target of await selectShortLinkTargets(db, cutoff, shortLinkLimit)) {
-			shortLinks.attempted += 1;
-			shortLinkAttemptedIds.add(target.product.id);
-			const resolution = await resolveShortLink(target.product.url, {
-				fetcher: deps.resolveFetcher
-			});
-			if (!resolution.ok) {
-				countShortFailure(resolution.code, 'resolve');
-				// Registra a tentativa para que o rodízio avance e estes links não bloqueiem os demais.
-				unresolvedResults.push({
-					productId: target.product.id,
-					status: 'uncertain',
-					matchLevel: 'none',
-					itemId: null,
-					shopId: null,
-					sheetPrice: target.product.price,
-					sheetPriceMax: target.product.priceMax ?? null,
-					apiPriceMin: null,
-					apiPriceMax: null,
-					apiProductName: null,
-					detail: {
-						reasons: ['Não foi possível resolver o link curto para identificar o anúncio.']
-					},
-					lastObservedAt: null
+		const toResolve: AuditTarget[] = [];
+		for (const target of targets) {
+			if (target.itemId && target.shopId) {
+				identified.push({
+					target,
+					ids: { itemId: target.itemId, shopId: target.shopId },
+					level: 'linked',
+					needsLink: false
 				});
 				continue;
 			}
+			const ids = extractShopeeIdsFromUrl(target.product.url);
+			if (ids) identified.push({ target, ids, level: 'url_id', needsLink: true });
+			else if (toResolve.length < MAX_SHORT_LINK_RESOLUTIONS_PER_RUN) toResolve.push(target);
+		}
+
+		shortLinks.attempted = toResolve.length;
+		const resolutions = await mapPool(toResolve, SHORT_LINK_CONCURRENCY, (target) =>
+			resolveShortLink(target.product.url, { fetcher: deps.resolveFetcher })
+		);
+		const shortLinkProductIds = new Set<string>();
+		toResolve.forEach((target, index) => {
+			const resolution = resolutions[index]!;
+			if (!resolution.ok) {
+				countShortFailure(
+					resolution.code,
+					'resolve',
+					resolution.detail ? `${resolution.code}:${resolution.detail}` : undefined
+				);
+				recordCheck({
+					productId: target.product.id,
+					outcome: 'unresolved',
+					errorCode: resolution.code,
+					errorDetail: resolution.detail ?? null
+				});
+				return;
+			}
 			shortLinks.resolved += 1;
 			shortLinkProductIds.add(target.product.id);
-			identified.push({ target, ids: resolution.ids, level: 'url_id' });
-		}
-		const discovery = (await selectDiscoveryTargets(db, cutoff, discoveryLimit)).filter(
-			(target) => !shortLinkAttemptedIds.has(target.product.id)
-		);
+			identified.push({ target, ids: resolution.ids, level: 'url_id', needsLink: true });
+		});
 
-		const results: AuditResult[] = [];
-		const credentialsForCalls = credentials;
+		const results: Array<{ result: AuditResult; item: Identified }> = [];
 		// Compartilhado entre grupos e descoberta: só um sucesso o zera.
 		let consecutiveFailures = 0;
 
@@ -356,53 +422,93 @@ export async function runCatalogAudit(
 			try {
 				const pages = await callWithRetries(state, (control) =>
 					getProductOffersBatch(
-						credentialsForCalls,
+						credentials,
 						group.map(({ ids }) => ({ ...ids, page: 1, limit: 1, listType: 0 })),
 						fetcher,
 						control
 					)
 				);
 				consecutiveFailures = 0;
-				group.forEach(({ target, ids, level }, index) => {
+				group.forEach((item, index) => {
 					const nodes: ShopeeProductOfferV2[] = pages[index]!.offers.map((offer) => offer.product);
-					results.push(classifyIdentifiedProduct(target.product, ids, level, nodes));
+					results.push({
+						item,
+						result: classifyIdentifiedProduct(item.target.product, item.ids, item.level, nodes)
+					});
 				});
 			} catch (error) {
 				const safe = safeError(error);
-				const fatal = isStopError(error);
-				if (fatal) {
+				if (isStopError(error)) {
 					stopError = safe;
 					break;
 				}
-				state.totals.failures += group.length;
+				for (const item of group) {
+					if (shortLinkProductIds.has(item.target.product.id)) countShortFailure('api_failed', 'api');
+					recordCheck({
+						productId: item.target.product.id,
+						outcome: 'api_error',
+						errorCode: safe.code
+					});
+				}
 				consecutiveFailures += 1;
 				stopError ??= safe;
 				if (consecutiveFailures >= MAX_CONSECUTIVE_CHUNK_FAILURES) break;
 			}
 		}
 
-		// O vínculo só é gravado quando a API devolveu exatamente o itemId e o shopId resolvidos.
-		const shortLinkAnswered = new Set(results.map((result) => result.productId));
-		// Resolvidos cuja consulta em lote falhou (ou foi interrompida): uma falha cada.
-		for (const productId of shortLinkProductIds) {
-			if (!shortLinkAnswered.has(productId)) countShortFailure('api_failed', 'api');
-		}
-		for (const result of results) {
-			if (!shortLinkProductIds.has(result.productId)) continue;
-			if (result.status !== 'valid' && result.status !== 'price_changed') {
-				countShortFailure('not_confirmed', 'api');
-				result.detail.reasons.push('Link curto resolvido, mas a API não confirmou o anúncio.');
-				continue;
+		for (const { result, item } of results) {
+			const productId = item.target.product.id;
+			const confirmed = result.status === 'valid' || result.status === 'price_changed';
+			const wasShortLink = shortLinkProductIds.has(productId);
+			let outcome: QueueCheck['outcome'] = confirmed
+				? 'ok'
+				: result.status === 'unavailable'
+					? 'unavailable'
+					: 'review';
+			let linkedNow = !item.needsLink;
+
+			if (item.needsLink) {
+				if (!confirmed) {
+					if (wasShortLink) {
+						countShortFailure('not_confirmed', 'api');
+						result.detail.reasons.push('Link curto resolvido, mas a API não confirmou o anúncio.');
+					}
+				} else {
+					try {
+						await linkProductToShopee(db, productId, result.itemId!, result.shopId!);
+						linkedNow = true;
+						if (wasShortLink) shortLinks.linked += 1;
+					} catch {
+						outcome = 'link_error';
+						if (wasShortLink) countShortFailure('link_rejected', 'link');
+						result.detail.reasons.push(
+							'Anúncio confirmado pela API, mas o vínculo não foi gravado (conflito ou falha no banco).'
+						);
+					}
+				}
 			}
-			try {
-				await linkProductToShopee(db, result.productId, result.itemId!, result.shopId!);
-				shortLinks.linked += 1;
-			} catch {
-				countShortFailure('link_rejected', 'link');
-				result.detail.reasons.push(
-					'Link curto resolvido, mas o vínculo não foi gravado (conflito ou falha no banco).'
-				);
+
+			if (
+				settings.updatePrices &&
+				!options.targets &&
+				linkedNow &&
+				confirmed &&
+				result.apiPriceMin !== null &&
+				outcome === 'ok'
+			) {
+				try {
+					if (await applyObservedPrice(db, productId, result.apiPriceMin, result.apiPriceMax)) {
+						priceUpdates += 1;
+					}
+				} catch {
+					result.detail.reasons.push('Não foi possível gravar o preço observado.');
+				}
 			}
+			recordCheck({
+				productId,
+				outcome,
+				errorCode: outcome === 'link_error' ? 'link_rejected' : null
+			});
 		}
 
 		const discoveryResults: AuditResult[] = [];
@@ -412,7 +518,7 @@ export async function runCatalogAudit(
 				try {
 					const page = await callWithRetries(state, (control) =>
 						getProductOffers(
-							credentialsForCalls,
+							credentials,
 							{
 								keyword: searchKeywordFor(target.product.name),
 								page: 1,
@@ -444,9 +550,12 @@ export async function runCatalogAudit(
 			}
 		}
 
-		const allResults = [...results, ...discoveryResults, ...unresolvedResults];
+		const allResults = [...results.map(({ result }) => result), ...discoveryResults];
 		if (allResults.length > 0) {
-			const pairs = results.map((result) => ({ itemId: result.itemId!, shopId: result.shopId! }));
+			const pairs = results.map(({ result }) => ({
+				itemId: result.itemId!,
+				shopId: result.shopId!
+			}));
 			const [previous, observations] = await Promise.all([
 				getAudits(
 					db,
@@ -455,7 +564,7 @@ export async function runCatalogAudit(
 				getLatestObservations(db, pairs)
 			]);
 			const events: MonitorEventInput[] = [];
-			for (const result of results) {
+			for (const { result } of results) {
 				const observation = observations.get(`${result.itemId}\u0000${result.shopId}`);
 				if (observation) {
 					result.lastObservedAt = observation.observedAt;
@@ -483,13 +592,30 @@ export async function runCatalogAudit(
 				(result) => result.status === 'unavailable'
 			).length;
 		}
+		// Só depois dos resultados salvos: se algo acima falhar, a fila não avança em falso.
+		await recordQueueChecks(db, [...checks.values()], clock(), settings.intervalHours);
 	} catch (error) {
 		console.error('Catalog audit failed:', error instanceof Error ? error.message : String(error));
 		stopError = { code: 'CATALOG_AUDIT_FAILED', message: 'A verificação não pôde ser concluída.' };
 	}
 
-	const status: 'completed' | 'partial' | 'failed' =
-		!stopError && state.totals.failures === 0 ? 'completed' : saved > 0 ? 'partial' : 'failed';
+	const successes = [...checks.values()].filter((check) => !isFailureOutcome(check.outcome)).length;
+	if (!stopError && state.totals.failures > 0) {
+		const summary = Object.entries(failureCodes)
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 5)
+			.map(([code, count]) => `${code} (${count})`)
+			.join(', ');
+		stopError = {
+			code: 'PARTIAL_FAILURES',
+			message: `${state.totals.failures} produto(s) com falha nesta execução: ${summary}.`
+		};
+	}
+	const status: 'completed' | 'partial' | 'failed' = !stopError
+		? 'completed'
+		: successes > 0 || saved > 0
+			? 'partial'
+			: 'failed';
 	const finishedAt = clock();
 	state.totals.api_calls = state.control.counters.reserved;
 	state.totals.retries = state.control.counters.retries;
@@ -508,28 +634,17 @@ export async function runCatalogAudit(
 		totals: state.totals,
 		errorCode: stopError?.code ?? null,
 		errorMessage: stopError?.message ?? null,
-		shortLinks
+		shortLinks,
+		priceUpdates,
+		checks: [...checks.values()]
 	};
 }
 
-function isFatal(error: { code: string }): boolean {
-	return (
-		error.code === 'BUDGET_EXHAUSTED' ||
-		error.code === 'SHOPEE_CALL_CONTROL_UNAVAILABLE' ||
-		error.code === 'SHOPEE_CALL_CONTROL_REQUIRED' ||
-		error.code === 'SHOPEE_RATE_LIMIT' ||
-		error.code.startsWith('SHOPEE_INVALID_CREDENTIAL') ||
-		error.code === 'SHOPEE_API_ACCESS_DENIED' ||
-		error.code === 'SHOPEE_QUERY_PARSE_ERROR' ||
-		error.code === 'SHOPEE_INVALID_PARAMETERS' ||
-		error.code === 'SHOPEE_GRAPHQL_ERROR'
-	);
-}
-
 /**
- * Ponto de entrada para um agendador (Cron Trigger). Respeita a pausa e o intervalo configurados,
- * não faz buscas por nome e só revalida produtos já identificados. Ainda não está ligado a
- * nenhum agendamento: o Worker gerado pelo adaptador SvelteKit não exporta `scheduled`.
+ * Ponto de entrada do Cron Trigger. Cada tick processa um lote da fila persistente; quem decide o
+ * que está vencido é a própria fila (próxima verificação por produto), não o relógio global.
+ * Respeita a pausa e sempre registra o sinal de vida do agendador, para o painel provar que o
+ * cron realmente disparou.
  */
 export async function runScheduledCatalogMonitor(
 	db: D1Database,
@@ -537,20 +652,37 @@ export async function runScheduledCatalogMonitor(
 	deps: CatalogAuditDeps = {}
 ): Promise<CatalogAuditOutcome> {
 	const clock = deps.now ?? (() => new Date());
-	const settings = await getMonitorSettings(db);
-	if (settings.paused) return { state: 'skipped', reason: 'paused' };
-	const [lastRun] = await listMonitorRuns(db, 1);
-	const lastStart = lastRun ? Date.parse(lastRun.started_at) : NaN;
-	if (
-		Number.isFinite(lastStart) &&
-		clock().getTime() - lastStart < settings.intervalHours * HOUR_MS
-	) {
-		return { state: 'skipped', reason: 'interval' };
+	let outcome: CatalogAuditOutcome;
+	try {
+		const settings = await getMonitorSettings(db);
+		outcome = settings.paused
+			? { state: 'skipped', reason: 'paused' }
+			: await runCatalogAudit(db, credentials, { trigger: 'scheduled' }, deps);
+	} catch (error) {
+		console.error('Scheduled monitor failed:', error instanceof Error ? error.message : String(error));
+		outcome = {
+			state: 'blocked',
+			code: 'SCHEDULED_FAILED',
+			message: 'A execução agendada falhou.'
+		};
 	}
-	return runCatalogAudit(
-		db,
-		credentials,
-		{ trigger: 'scheduled', linkedLimit: settings.batchSize, discoveryLimit: 0, shortLinkLimit: 0 },
-		deps
-	);
+	const label =
+		outcome.state === 'finished'
+			? outcome.status
+			: outcome.state === 'skipped'
+				? outcome.reason
+				: outcome.state === 'blocked'
+					? outcome.code
+					: 'busy';
+	try {
+		await recordSchedulerHeartbeat(
+			db,
+			label,
+			outcome.state === 'finished' ? outcome.runId : null,
+			clock()
+		);
+	} catch (error) {
+		console.error('Heartbeat failed:', error instanceof Error ? error.message : String(error));
+	}
+	return outcome;
 }

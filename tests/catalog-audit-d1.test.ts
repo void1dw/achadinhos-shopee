@@ -15,6 +15,7 @@ import {
 	updateMonitorSettings
 } from '../src/lib/server/shopee/monitor-store.ts';
 import { insertProduct, linkProductToShopee } from '../src/lib/server/product-store.ts';
+import { getSchedulerHeartbeat } from '../src/lib/server/shopee/monitor-queue.ts';
 
 const credentials = { SHOPEE_APP_ID: 'test-app-id', SHOPEE_APP_SECRET: 'test-app-secret' };
 
@@ -102,7 +103,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			const outcome = await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher, sleep }
 			);
 			assert.equal(outcome.state, 'finished');
@@ -128,7 +129,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher, sleep }
 			);
 			const events = (await listMonitorEvents(db, 200)).filter(
@@ -142,7 +143,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher, sleep }
 			);
 			assert.equal((await getAudits(db, [idValid])).get(idValid)?.status, 'unavailable');
@@ -150,7 +151,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher, sleep }
 			);
 			const types = (await listMonitorEvents(db, 200))
@@ -177,7 +178,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			const outcome = await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher: limited, sleep }
 			);
 			assert.equal(outcome.state, 'finished');
@@ -203,7 +204,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			const outcome = await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{ fetcher: flaky, sleep }
 			);
 			assert.equal(outcome.state, 'finished');
@@ -214,7 +215,7 @@ test('D1 catalog audit and monitor', async (context) => {
 			const blocked = await runCatalogAudit(
 				db,
 				credentials,
-				{ trigger: 'manual', linkedLimit: 50, discoveryLimit: 0, shortLinkLimit: 0, force: true },
+				{ trigger: 'manual', limit: 50, discoveryLimit: 0, force: true },
 				{
 					fetcher: (async () => {
 						blockedCalls += 1;
@@ -237,7 +238,7 @@ test('D1 catalog audit and monitor', async (context) => {
 				const busy = await runCatalogAudit(
 					db,
 					credentials,
-					{ trigger: 'manual', linkedLimit: 1, discoveryLimit: 0, shortLinkLimit: 0 },
+					{ trigger: 'manual', limit: 1, discoveryLimit: 0, force: true },
 					{ fetcher, sleep }
 				);
 				assert.equal(busy.state, 'busy');
@@ -250,8 +251,10 @@ test('D1 catalog audit and monitor', async (context) => {
 				const skipped = await runScheduledCatalogMonitor(db, credentials, { fetcher, sleep });
 				assert.deepEqual(skipped, { state: 'skipped', reason: 'paused' });
 				await updateMonitorSettings(db, { paused: false });
-				const recent = await runScheduledCatalogMonitor(db, credentials, { fetcher, sleep });
-				assert.deepEqual(recent, { state: 'skipped', reason: 'interval' });
+				const scheduled = await runScheduledCatalogMonitor(db, credentials, { fetcher, sleep });
+				assert.ok(['finished', 'skipped'].includes(scheduled.state));
+				// Cada tick grava o sinal de vida, mesmo pausado, para provar que o cron disparou.
+				assert.notEqual(await getSchedulerHeartbeat(db), null);
 				assert.ok((await listMonitorRuns(db, 5)).length > 0);
 			}
 		);
@@ -315,8 +318,8 @@ test('3 falhas consecutivas (HTTP 503) interrompem os grupos e a descoberta', as
 			await add(id, `https://s.shopee.com.br/fail${index}`);
 			await linkProductToShopee(db, id, String(900000 + index), shop);
 		}
-		// Elegível para descoberta: sem vínculo e sem IDs na URL.
-		await add('fail-discovery', 'https://s.shopee.com.br/fail-discovery');
+		// Sem vínculo e sem IDs na URL: só elegível para descoberta por nome, fora da fila.
+		await add('fail-discovery', 'https://example.com/produto-sem-identificador');
 
 		let calls = 0;
 		const fetcher = (async () => {
@@ -331,7 +334,7 @@ test('3 falhas consecutivas (HTTP 503) interrompem os grupos e a descoberta', as
 		const outcome = await runCatalogAudit(
 			db,
 			credentials,
-			{ trigger: 'manual', linkedLimit: 21, discoveryLimit: 5, shortLinkLimit: 0, force: true },
+			{ trigger: 'manual', limit: 21, discoveryLimit: 5, force: true },
 			{ fetcher, sleep }
 		);
 		assert.equal(outcome.state, 'finished');
